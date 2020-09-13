@@ -1,0 +1,615 @@
+﻿@{
+    //Layout = null;
+    ViewData["Title"] = "Task";
+    DateTime selectedDate = (DateTime)ViewData["selectedDate"] == null ? DateTime.Now : (DateTime)ViewData["selectedDate"];
+}
+
+@using Solo.Model;
+
+<html>
+<head>
+    <script src="~/Scripts/jquery-1.7.1.js"></script>
+    <script src="~/Scripts/jquery-1.7.1.min.js"></script>
+    <script type="text/javascript">
+        var year = @selectedDate.Year.ToString();
+        var month = @selectedDate.Month.ToString();
+        $(function () {
+            $("#selYear").val(year);
+            $("#selMonth").val(month);
+            //$("#btnAdd").click(function () {
+            //    window.location.href = "/Task/Edit";
+            //});
+            $("#btnWeek").click(function () {
+                console.log($("#btnWeek").text());
+                if ($("#btnWeek").text() == "列表显示") {
+                    $("#btnWeek").text( "日历显示");
+                    $("#main").attr("style", "display:none;");//隐藏div
+                    $("#list").attr("style","display:block;");
+                }
+                else {
+                    $("#btnWeek").text( "列表显示");
+                    $("#main").attr("style", "display:block;");
+                    $("#list").attr("style","display:none;");
+                }
+                //$("#main").html("");
+                
+                //var str1 = "";
+                //for (var i = 0; i < length; i++) {
+                    
+                //}
+            });
+            $(".selector").change(function () {
+                var yearSelected = $("#selYear").find("option:selected").text();
+                var monthSelected = $("#selMonth").find("option:selected").text();
+                window.location.href = "/Task/DateChange?yearSelected="+yearSelected+"&monthSelected=" + monthSelected;
+            });
+        });
+
+        function deleteTask(id) {
+            if(confirm("确定删除数据？")){
+                var data={
+                    Id :id
+                }
+                $.post("/Task/DeleteTask", data, function (obj) {
+                    window.location.reload()
+                })
+            }else{
+
+            }
+        }
+
+        function setFinish(id) {
+            if(confirm("确定设置为完成？")){
+                var data={
+                    Id :id
+                }
+                $.post("/Task/SetFinish", data, function (obj) {
+                    window.location.reload()
+                })
+            }else{
+
+            }
+        }
+        
+        function setUnFinish(id) {
+            if(confirm("确定设置为未完成？")){
+                var data={
+                    Id :id
+                }
+                $.post("/Task/SetUnFinish", data, function (obj) {
+                    window.location.reload()
+                })
+            }else{
+
+            }
+        }
+
+    </script>
+    <style>
+        .div0 {
+            border: 2px solid black;
+            width: 1400px;
+            height: 1300px;
+            left: 150px;
+            box-sizing:content-box
+                
+        }
+
+        .div1 {
+            top: 0px;
+            height: 23px;
+            border: 1px solid black;
+            width: 198px;
+            float: left;
+            box-sizing:content-box
+        }
+
+        .div2 {
+            top: 0px;
+            height: 182px;
+            width: 200px;
+            float: left;
+            box-sizing:content-box
+        }
+
+        .div3 {
+            top: 0px;
+            height: 180px;
+            width: 198px;
+            float: left;
+            border: 1px solid black;
+            box-sizing:content-box
+        }
+        .div4{
+            width:196px;
+            border:1px solid #000000;
+            height:23px;
+            box-sizing:content-box
+        }
+        .tbright{
+            position:relative;
+            float:right;
+            width:25px;
+            height:24px;
+        }
+        .divright{
+            position:relative;
+            float:right;
+            width:25px;
+            height:24px;
+        }
+        .delete {
+            width:100%;
+            height:100%
+        }
+        .inputV {
+            width: 60px
+        }
+
+        .menu {
+            text-align: center;
+            position: relative;
+            left: 70px;
+            border: 1px solid black;
+            width: 1370px;
+        }
+
+        .dataView {
+            text-align: left;
+            position: relative;
+            border: 1px solid black;
+            width: 1400px;
+        }
+
+        .sortable {
+            width: 1400px;
+        }
+        .row{
+            padding:0px;
+            margin:0px;
+            margin-bottom:0px;
+        }
+        .row .row{
+            padding:0px;
+            margin:0px;
+            margin-bottom:0px;
+            margin-top:0px;
+        }
+        [class*="col-"]{
+            padding:0px;
+            margin:0px;
+            padding-top:0px;
+            padding-bottom:0px;
+        }
+        td
+        {
+          white-space: nowrap;
+        }
+         /* 任务详情框主体 */
+        .task {
+            position: absolute;
+            width: 890px;
+            height: 490px;
+            z-index: 9999;
+            display: none;
+            background-color: white;
+            left: 35%;
+            margin-left: -256px;
+            margin-top: 20px;
+            border: 1px solid gray;
+        }
+        /* 任务标题 */
+        .taskname {
+            width: 100%;
+            height: 40px;
+            line-height: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: move;
+        }
+        .taskname span a {
+            text-decoration: none;
+            border: 1px solid gray;
+            font-size: 12px;
+            color: black;
+            border-radius: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: #fff;
+            position: absolute;
+            top: -20px;
+            right: -20px;
+        }
+        /* 买入表单 */
+        .task-input {
+            margin: 20px 0px 20px 0px;
+        }
+
+        .task-input label {
+            height: 25px;
+            line-height: 35px;
+            width: 60px;
+            text-align: right;
+            font-size: 14px;
+        }
+
+        .task-input input.list-input {
+            height: 30px;
+            line-height: 10px;
+            width: 250px;
+            text-indent: 5px;
+        }
+        /* 提交按钮 */
+        .taskSubmit {
+            width: 160px;
+            height: 30px;
+            text-align: center;
+            border: 1px solid gray;
+            background-color: white;
+            margin-right: 60px;
+            float: right;
+        }
+
+        /* 遮盖层 */
+        .bg {
+            background-color: #000;
+            width: 100%;
+            height: 100%;
+            top: 0px;
+            position: fixed;
+            opacity: 0.3;
+            -webkit-opacity: 0.3;
+            -moz-opacity: 0.3;
+            display: none;
+        }
+    </style>
+</head>
+<body style="position:relative;left:50px">
+    <div class="div0" style="height:30px">
+        年：
+        <select id="selYear" class="selector">
+            <option value="2018">2018</option>
+            <option value="2019">2019</option>
+            <option value="2020">2020</option>
+        </select>
+        月：
+        <select id="selMonth" class="selector">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+        </select>
+        <button id="btnAdd">添加</button>
+        <button id="btnWeek">列表显示</button>
+    </div>
+    <!-- 登陆框主体 -->
+    <div id="task" class="task">
+        <!-- 登陆框标题 -->
+        <div id="taskname" style="height:10px;right:3px;position:absolute" >
+            <span><a id="closeBtn" href="javascript:void(0)">关闭</a></span>
+        </div>
+        <!-- 登陆框表单 -->
+        <div id="login-form">
+            <div class="task-input">
+                <input id="taskId" type="hidden" name="id"  />
+                <label>taskName：</label>
+                <input type="text" name="taskName" id="taskName" class="list-input" />
+                <label>DeadLine：</label>
+                <input type="date" name="deadLine" id="deadLine" class="list-input" />
+                <label>Type：</label>
+                <select id="type" onchange=selectChange() name="type" class="list-input" style="width:150px">
+                    <option value="DotNet">DotNet</option>
+                    <option value="ImageProcess">ImageProcess</option>
+                </select>
+            </div>
+            <div class="task-input">
+                <label>SkillName：</label>
+                <input type="text" name="skillName" id="skillName" class="list-input" />
+                <label>Duration：</label>
+                <input type="text" name="duration" id="duration" class="list-input" />
+                <label>Status：</label>
+                <select id="status" onchange=selectChange() name="status" class="list-input" style="width:150px">
+                    <option value=1>Overtime</option>
+                    <option value=2>Finish</option>
+                    <option value=3>UnFinish</option>
+                </select>
+            </div>
+            <div>
+                <textarea rows="15" cols="300" style="text-align:left;width:888px;height:310px" name="detail" id="detail">
+                </textarea>               
+            </div>
+        </div>
+        <button id="taskSubmit" onclick=taskSubmit() class="taskSubmit">修改</button>
+        <!--<input type="submit" id="taskSubmit" value="提交" class="taskSubmit" />-->
+    </div>
+    <!-- 遮盖层 -->
+    <div id="bg" class="bg">sada</div>
+    <div class="div0" id="main">
+
+        @for (int i = 0; i < 7; i++)
+        {
+            <div class="div1">
+                @Enum.GetName(typeof(DayOfWeek), i)
+            </div>
+        }
+        @for (int i = 0; i < 45; i++)
+        {
+            int weekNum = (int)selectedDate.DayOfWeek;
+            int daysCount = (int)ViewData["dayCount"];
+            if (i >= weekNum && i < daysCount + weekNum)
+            {
+                int dayIndex = (i - weekNum + 1);
+    <div class="div3">
+        @*<table border="1" cellspacing="0" id="tb" width=198 align="center" style="table-layout:fixed">
+            <tr><td align="center" style="border:0px">@dayIndex</td></tr>
+            @foreach (TaskInfo ti in (List<TaskInfo>)ViewData["tiList"])
+            {
+                if (ti.DeadLine.Day == dayIndex)
+                {
+                    if (ti.Status == 1)
+                    {
+                        <tr><td style="background-color:red">@ti.taskName</td></tr>
+                    }
+                    else if (ti.Status == 2)
+                    {
+                        <tr><td style="background-color:green">@ti.taskName</td></tr>
+                    }
+                    else
+                    {
+                        <tr><td style="background-color:gray">@ti.taskName</td></tr>
+                    }
+
+                }
+
+            }
+        </table>*@
+        <table cellspacing="0" id="tb" width=200 align="center" style="table-layout:fixed">
+            <tr><td align="center" style="border:1px solid black">@dayIndex</td></tr>
+        </table>
+        @foreach (TaskInfo ti in (List<TaskInfo>)ViewData["tiList"])
+        {
+            if (ti.DeadLine.Day == dayIndex)
+            {
+                if (ti.Status == 1)
+                {
+                    @*<div class="div4" style="background-color:red"><a href=@("/Task/Detail?Id="+ti.Id) target="blank">@ti.taskName</a><div class="divright"><img src="~/image/delete.png" class="delete" style="cursor:pointer" onclick="deleteTask(@ti.Id)" /></div><div class="divright"><img src="~/image/unFinish.png" style="cursor:pointer" class="delete" onclick="setFinish(@ti.Id)" /></div></div>*@
+                    <div class="div4" style="background-color:red"><a style="cursor:pointer" onclick="getDetails(@ti.Id)">@ti.taskName</a><div class="divright"><img src="~/image/delete.png" class="delete" style="cursor:pointer" onclick="deleteTask(@ti.Id)" /></div><div class="divright"><img src="~/image/unFinish.png" style="cursor:pointer" class="delete" onclick="setFinish(@ti.Id)" /></div></div>
+                }
+                else if (ti.Status == 2)
+                {
+                    @*<div class="div4" style="background-color:green"><a href=@("/Task/Detail?Id="+ti.Id) target="blank">@ti.taskName</a><div class="divright"><img src="~/image/delete.png" class="delete" style="cursor:pointer" onclick="deleteTask(@ti.Id)" /></div><div class="divright"><img src="~/image/finish.png" style="cursor:pointer" class="delete" onclick="setUnFinish(@ti.Id)" /></div></div>*@
+                    <div class="div4" style="background-color:green"><a style="cursor:pointer"  onclick="getDetails(@ti.Id)">@ti.taskName</a><div class="divright"><img src="~/image/delete.png" class="delete" style="cursor:pointer" onclick="deleteTask(@ti.Id)" /></div><div class="divright"><img src="~/image/finish.png" style="cursor:pointer" class="delete" onclick="setUnFinish(@ti.Id)" /></div></div>
+                }
+                else
+                {
+                    @*<div class="div4" style="background-color:gray"><a href=@("/Task/Detail?Id="+ti.Id) target="blank">@ti.taskName</a><div class="divright"><img src="~/image/delete.png" class="delete" style="cursor:pointer" onclick="deleteTask(@ti.Id)" /></div><div class="divright"><img src="~/image/unFinish.png" style="cursor:pointer" class="delete" onclick="setFinish(@ti.Id)" /></div></div>*@
+                    <div class="div4" style="background-color:gray"><a style="cursor:pointer"  onclick="getDetails(@ti.Id)">@ti.taskName</a><div class="divright"><img src="~/image/delete.png" class="delete" style="cursor:pointer" onclick="deleteTask(@ti.Id)" /></div><div class="divright"><img src="~/image/unFinish.png" style="cursor:pointer" class="delete" onclick="setFinish(@ti.Id)" /></div></div>
+                }
+
+            }
+        }
+
+    </div>
+            }
+            else
+            {
+                <div class="div2"></div>
+            }
+
+        }
+
+    </div>
+    <div class="dataView" id="list" style="display:none">
+        <table border="1" cellspacing="0" cellpadding="0" class="sortable">
+            <thead>
+                <tr>
+                    <td>序号</td>
+                    <td>DeadLine</td>
+                    <td>Task</td>
+                    <td>Skill</td>
+                    <td>状态</td>
+                    <td>耗时</td>
+                    <td>详情</td>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (TaskInfo ti in (List<TaskInfo>)ViewData["tiList"])
+                {
+                    <tr>
+                        <td>@ti.Id.ToString()</td>
+                        <td>@ti.DeadLine.ToString("yyyy-MM-dd")</td>
+                        <td>@ti.taskName</td>
+                        <td>@ti.SkillName</td>
+                        <td>@ti.Status.ToString()</td>
+                        <td>@ti.Duration.ToString()</td>
+                        <td style="word-break: break-all;white-space: break-spaces">
+                            <p>@ti.Detail</p>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <!-- 弹框js代码 -->
+    <script type="text/javascript">
+        var login = document.getElementById('task');
+        var bg = document.getElementById('bg');
+
+        // 1.点击"点击，弹出登陆框",弹出登陆窗口和遮盖层
+        //var adminBtn = document.getElementById('addtr');
+        //adminBtn.onclick = function (fundno) {
+        //    login.style.display = "block";
+        //    bg.style.display = "block";
+        //    $("#translb").text(fundno);
+        //    return false;
+        //}
+
+        $("#btnAdd").click(function () {
+            login.style.display = "block";
+            bg.style.display = "block";
+            var now = formatDate(new Date());
+            $("#taskName").val("");
+            $("#skillName").val("");
+            $("#duration").val("");
+            $("#deadLine").val(now);
+            $("#type").val("DotNet");
+            $("#status").val(3);
+            $("#detail").val("");
+            $("#taskSubmit").text("添加");
+        });
+
+        function getDetails(id) {
+            $("#taskId").val(id);
+            $("#taskName").val("");
+            $("#skillName").val("");
+            $("#duration").val(0);
+            $("#detail").val("");
+            login.style.display = "block";
+            bg.style.display = "block";
+
+            $.ajax({
+                url: '/Task/GetDetails',
+                type: 'post',
+                data: {
+                    Id: id,
+                },
+                error: function (data) {
+                    alert('请求失败');
+                },
+                success: function (data) {
+                    fdate = formatDate(data.deadLine);
+                    console.log(fdate);
+                    $("#taskName").val(data.taskName);
+                    $("#skillName").val(data.skillName);
+                    $("#duration").val(data.duration);
+                    $("#deadLine").val(fdate);
+                    $("#type").val(data.type);
+                    $("#status").val(data.status);
+                    $("#detail").val(data.detail);
+                }
+            })
+            $("#taskSubmit").text("修改");
+
+        }
+
+        function taskSubmit() {
+            if ($("#taskSubmit").text()=="修改") {
+                $.ajax({
+                        url: '/Task/Update',
+                        type: 'post',
+                        data: {
+                            id: $("#taskId").val(),
+                            taskName: $("#taskName").val(),
+                            deadLine: $("#deadLine").val(),
+                            duration: $("#duration").val(),
+                            skillName: $("#skillName").val(),
+                            type: $("#type").val(),
+                            status: $("#status").val(),
+                            detail: $("#detail").val()
+                        },
+                        error: function (data) {
+                            alert('请求失败');
+                        },
+                        success: function (data) {
+                            //$("#" + fundnoStr).text("-");//改变标签内容值'
+                            if (data == true) {
+                                alert('修改成功');
+                                location.reload();
+                            }
+                            else {
+                                alert('修改失败');
+                            }
+                        }
+                })
+            }
+            else {
+                $.ajax({
+                        url: '/Task/Add',
+                        type: 'post',
+                        data: {
+                            taskName: $("#taskName").val(),
+                            deadLine: $("#deadLine").val(),
+                            duration: $("#duration").val(),
+                            skillName: $("#skillName").val(),
+                            type: $("#type").val(),
+                            status: $("#status").val(),
+                            detail: $("#detail").val()
+                        },
+                        error: function (data) {
+                            alert('请求失败');
+                        },
+                        success: function (data) {
+                            //$("#" + fundnoStr).text("-");//改变标签内容值'
+                            if (data == true) {
+                                alert('添加成功');
+                                location.reload();
+                            }
+                            else {
+                                alert('添加失败');
+                            }
+                        }
+                })
+            }
+
+        }
+
+              
+        //inputTime 参数是毫秒级时间戳
+        function formatDate(inputTime) {
+            var date = new Date(inputTime);
+            var y = date.getFullYear();
+            var m = date.getMonth() + 1;
+            var d = date.getDate();
+                        if (m < 10) {
+                m = "0" + m.toString();
+            }
+            if (d < 10) {
+                d = "0" + d.toString();
+            }
+            return y + '-' + m + '-' + d;
+         }
+
+        // 2.点击"关闭",隐藏登陆窗口和遮盖层
+        var closeBtn = document.getElementById('closeBtn');
+        closeBtn.onclick = function () {
+            login.style.display = "none";
+            bg.style.display = "none";
+            return false;
+        }
+        //// 3.鼠标拖拽功能
+        //var login_title = document.getElementById('taskname');
+        //login_title.onmousedown = function (e) {
+        //    e = e || window.event;
+        //    var x = e.pageX || e.clientX + (document.body.scrollLeft || document.documentElement.scrollLeft);
+        //    var y = e.pageY || e.clientY + (document.body.scrollTop || document.documentElement.scrollTop);
+
+        //    var boxX = login.offsetLeft;
+        //    var boxY = login.offsetTop;
+
+        //    var mouse_in_boxX = x - boxX;
+        //    var mouse_in_boxY = y - boxY;
+
+        //    document.onmousemove = function (e) {
+        //        var x = e.pageX || e.clientX + (document.body.scrollLeft || document.documentElement.scrollLeft);
+        //        var y = e.pageY || e.clientY + (document.body.scrollTop || document.documentElement.scrollTop);
+
+        //        login.style.left = x - mouse_in_boxX + 256 + 'px';
+        //        login.style.top = y - mouse_in_boxY - 142 + 'px';
+        //    }
+        //}
+
+        //login_title.onmouseup = function () {
+        //    document.onmousemove = null;
+        //}
+
+    </script>
+</body>
+</html>

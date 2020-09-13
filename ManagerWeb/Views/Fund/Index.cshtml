@@ -1,0 +1,356 @@
+﻿@{
+    //Layout = null;
+    ViewData["Title"] = "Fund";
+}
+@using Solo.Model.ViewModel
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <script src="~/Scripts/jquery-1.7.1.js"></script>
+    <script src="~/Scripts/jquery-1.7.1.min.js"></script>
+    <script src="~/Scripts/sorttable.js"></script>
+    <script type="text/javascript">          
+        function changeColor() {
+            $(".spec").each(function () {
+                if (parseFloat($(this).text())>0) {
+                    $(this).css("color", "red");
+                } else {
+                     $(this).css("color", "green");
+                }
+            })      
+        }      
+        function clearText() {
+            $(".inputV").each(function(){
+                $(this).val("");
+            })
+        }
+        function search() {
+            $(".searchForm").submit();
+        }
+        function addOrRemoveWait(fundnoStr) {   
+            //var tagName = $(obj).prop('tagName');
+            //var text = $(obj).prop('text');
+            //alert("tagName:" + tagName + " text:" + text);
+
+            //alert($("#" + fundnoStr).text());
+            if ($("#" + fundnoStr).text()=='+') {
+                $.ajax({
+                    url:'/Fund/AddToMyFunds',
+                    type:'post',
+                    data:{
+                       fundNo: fundnoStr,
+                       status: 2,
+                       investment: 0
+                    },
+                    error:function(data){
+                        alert('请求失败');                    
+                    },
+                    success: function (data) {
+                        $("#" + fundnoStr).text("-");//改变标签内容值                   
+                    }
+                })          
+            }
+            else if($("#" + fundnoStr).text()=='-'){
+                $.ajax({
+                    url:'/Fund/RemoveMyFund',
+                    type:'post',
+                    data:{
+                       fundNo: fundnoStr
+                    },
+                    error:function(data){
+                        alert('请求失败');                    
+                    },
+                    success: function (data) {
+                        $("#" + fundnoStr).text("+");         
+                    }
+                })  
+            }
+                           
+        }
+        function ajaxSearch() {
+            $.ajax({
+                url: '/Fund/AjaxSearch', //请求的url
+                type: 'post', //请求的方式
+                data: $('.searchForm').serialize(), //form表单里要提交的内容，里面的input等写上name就会提交，这是序列化
+                error:function (data) {
+                    alert('请求失败');
+                },
+                beforeSend: function () {  
+                    // 禁用按钮防止重复提交  
+                    $("#btnsearch").attr({ disabled: true });  
+                    $("#own").attr({ disabled: true });  
+                    $("#bondstock").attr({ disabled: true });  
+                    
+                    //清空table中的html
+                    $("#tbResult").html("");
+                    $("#maindiv").append("<div id='loading'><img src='/image/loading.gif' /><div>");  
+                },  
+                success: function (data) {
+                    $("#loading").remove();
+                    $("#btnsearch").attr({ disabled: false });  
+                    $("#own").attr({ disabled: false });  
+                    $("#bondstock").attr({ disabled: false });  
+                    var str1 = "";                    
+                    //tablehead = "<thead><tr><td>代号</td><td>名称</td><td>规模</td><td>手续费</td><td>非散率</td><td>持股率</td><td>近1天</td><td>近1周</td><td>近1月</td><td>近3月</td><td>近6月</td><td>近1年</td><td>近2年</td><td>近3年</td><td>近5年</td><td>7天赎回</td><td>30天赎回</td><td>1年赎回</td><td>2年赎回</td><td>任职时间</td></tr></thead><tbody>";
+                    //$("#tbResult").append(tablehead);
+                    for (var i = 0; i < data.length; i++){
+                        o7d = data[i].over7dFee;
+                        o30d = data[i].over30dFee;
+                        o1y = data[i].over1yFee;
+                        o2y = data[i].over2yFee;
+                        investment = data[i].investment
+                        returnRate = data[i].returnRate
+                        rankid = data[i].rank_Id;
+                        tag = "+";
+                        if (parseInt(data[i].status)==2) {
+                            tag = "-";
+                        }
+                        else if(parseInt(data[i].status)==1){
+                            tag = "*";
+                        }
+                        //console.log(data[i].status);
+                        //console.log(data[i].investment);                       
+                        if (data[i].over7dFee<data[i].over30dFee && parseInt(data[i].over7dFee)) {
+                            o7d = "---";
+                        }
+                        if (data[i].over30dFee < data[i].over1yFee && parseInt(data[i].over30dFee) == 0) {
+                            o30d = "---";
+                        }
+                        if (data[i].over1yFee<data[i].over2yFee &&parseInt(data[i].over1yFee)==0) {
+                            o1y = "---";
+                        }
+                        if (rankid == null) {
+                            rankid = '';
+                        }
+                        if (investment == null) {
+                            investment = '';
+                        }
+                        if (returnRate == null) {
+                            returnRate = '';
+                        }
+                        //colorStr = data[i].r1week>0? "red" : "green"
+                        //testStr = "<td style='color:"+colorStr+ "'>" + data[i].r1week + "</td>";                        
+                        str1 ="<tr>"+
+                                "<td><a href='/Fund/Test?FundNo="+data[i].fundNo +"' target='blank'>"+data[i].fundNo + "</a></td>" +
+                                "<td><a href='http://fund.eastmoney.com/"+data[i].fundNo+".html?spm=search' target='blank'>"+data[i].fundName + "</a></td>" +
+                                "<td>" + data[i].totalScale + "</td>" +
+                                "<td>" + data[i].totalFee + "</td>" +
+                                "<td>" + data[i].orgHoldRate + "</td>" +
+                                "<td>" + data[i].stockRate + "</td>" +
+                                "<td>" + investment + "</td>" +
+                                "<td class='spec'>" + returnRate + "</td>" +
+                                "<td class='spec'>" + data[i].r1day + "</td>" +
+                                "<td class='spec'>" + data[i].r1week + "</td>" +   
+                                "<td class='spec'>" + data[i].r1month + "</td>" +
+                                "<td class='spec'>" + data[i].r3month + "</td>" +
+                                "<td class='spec'>" + data[i].r6month + "</td>" +
+                                "<td class='spec'>" + data[i].r1year + "</td>" +
+                                "<td class='spec'>" + data[i].r2year + "</td>" +
+                                "<td class='spec'>" + data[i].r3year + "</td>" +
+                                "<td class='spec'>" + data[i].r5year + "</td>" +
+                                "<td class='over7d'>" + o7d + "</td>" +
+                                "<td class='over30d'>" + o30d + "</td>" +
+                                "<td class='over1y'>" + o1y + "</td>" +
+                                "<td class='over2y'><a href='http://fundf10.eastmoney.com/jjfl_"+data[i].fundNo+".html' target='blank'>" + o2y + "</a></td>" +
+                                "<td>" + data[i].dutyDate.replace("T00:00:00", "") + "</td>" +
+                                "<td>" + rankid + "</td>" +
+                                "<td><button id='"+data[i].fundNo+"' onclick=addOrRemoveWait('"+data[i].fundNo+"') >"+tag+"</button>"
+                              "</tr>";                             
+                        $("#tbResult").append(str1);                        
+                    }
+                    changeColor();
+                }
+            });  
+        }
+        function selectChange() {
+            $("#ownInput").val($("#own").val());
+            ajaxSearch();
+            //alert($("#own").val());
+        }       
+        function bondstockChange() {
+            $("#bondInput").val($("#bondstock").val());
+            ajaxSearch();
+        }
+        function checkboxOnclick(checkbox){
+            if ( checkbox.checked){
+                $("#newInput").val(true);
+            }else{
+                $("#newInput").val(false);
+            }
+            ajaxSearch();
+        }
+    </script>
+    <style>
+        .inputV{
+            width:60px
+        }
+        .menu{
+            text-align:center;
+            position:relative;
+            left:70px;
+            border: 1px solid black;
+            width:1370px;
+        }
+        .dataView{
+            text-align:center;
+            position:relative;
+            border: 1px solid black;
+            left:70px;
+            width:1370px;
+        }
+        .sortable{
+            width:1370px;
+            
+        }
+    </style>
+</head>
+
+<body>
+    <div class="menu">
+        <form class="searchForm" method="post">
+            <table>
+                <tr>
+                    <td>名称:</td>
+                    <td><input type="text" name="FundName" class="inputV" /></td>
+                    <td> 代号:</td>
+                    <td><input type="text" name="FundNo" class="inputV" /></td>
+                    <td> 规模:</td>
+                    <td><input type="text" name="MinTotalScale" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxTotalScale" class="inputV" /></td>
+                    <td> 手续费:</td>
+                    <td><input type="text" name="MinTotalFee" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxTotalFee" class="inputV" /></td>
+                    <td> 非散率:</td>
+                    <td><input type="text" name="MinOrgHoldRate" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxOrgHoldRate" class="inputV" /></td>
+                    <td> 近1周:</td>
+                    <td><input type="text" name="MinR1week" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR1week" class="inputV" /></td>
+                    <td> 近1月:</td>
+                    <td><input type="text" name="MinR1month" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR1month" class="inputV" /></td>
+                    <td> 近3月:</td>
+                    <td><input type="text" name="MinR3month" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR3month" class="inputV" /></td>
+                </tr>
+                <tr>
+                    <td>近6月:</td>
+                    <td><input type="text" name="MinR6month" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR6month" class="inputV" /></td>
+                    <td> 近1年:</td>
+                    <td><input type="text" name="MinR1year" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR1year" class="inputV" /></td>
+                    <td> 近2年:</td>
+                    <td><input type="text" name="MinR2year" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR2year" class="inputV" /></td>
+                    <td> 近3年:</td>
+                    <td><input type="text" name="MinR3year" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR3year" class="inputV" /></td>
+                    <td> 近5年:</td>
+                    <td><input type="text" name="MinR5year" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxR5year" class="inputV" /></td>
+                    <td>30天赎回:</td>
+                    <td><input type="text" name="MinOver30dFee" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxOver30dFee" class="inputV" /></td>
+                    <td>1年赎回:</td>
+                    <td><input type="text" name="MinOver1yFee" class="inputV" /></td>
+                    <td>-</td>
+                    <td><input type="text" name="MaxOver1yFee" class="inputV" /></td>
+                </tr>
+            </table>
+        </form>
+            <table>               
+                <tr style="height:30px">
+                    <form class="searchForm" method="post">
+                        <td>持股率:</td>
+                        <td><input type="text" name="MinStockRate" class="inputV" /></td>
+                        <td>-</td>
+                        <td><input type="text" name="MaxStockRate" class="inputV" /></td>
+                        <td>Rank:</td>
+                        <td><input type="text" name="MinRank" class="inputV" /></td>
+                        <td>-</td>
+                        <td><input type="text" name="MaxRank" class="inputV" /></td>
+                        <td> 任职时间:</td>
+                        <td><input type="date" name="MinDutyDate" value=@DateTime.Today.AddYears(-30).ToString("yyyy-MM-dd") style="width:143px" /></td>
+                        <td>-</td>
+                        <td><input type="date" name="MaxDutyDate" value=@DateTime.Today.ToString("yyyy-MM-dd") style="width:143px" /></td>
+                        <td><input id="ownInput" type="hidden" name="own" value="1" /></td>
+                        <td>最新<input id="newInput" type="checkbox" onclick=checkboxOnclick(this) value="false" name="isnew" /></td>
+                        <td>
+                            <select id="own" onchange=selectChange()>
+                                <option value="1">       </option>
+                                <option value="2">仅看持仓</option>
+                                <option value="3">仅看观望</option>
+                                <option value="4">仅看持观</option>
+                                <option value="5">持仓</option>
+                                <option value="6">观望</option>
+                                <option value="7">持仓观望</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select id="bondstock" name="bondstock" onchange=bondstockChange()>
+                                <option value="1">债券</option>
+                                <option value="2">股票</option>
+                                <option value="3" selected="selected">全部</option>
+                            </select>
+                        </td>
+                    </form>
+                        <td><button onclick=clearText()>清空</button></td>
+                        <td><button onclick=ajaxSearch() id="btnsearch">搜索</button></td>                       
+                </tr>
+            </table>        
+    </div>
+    <div class="dataView table-responsive"  id="maindiv">
+        <table border="1" cellspacing="0" cellpadding="0" class="sortable table-hover">
+            <thead><tr><td>代号</td><td>名称</td><td>规模</td><td>手续费</td><td>非散率</td><td>持股率</td><td>持仓</td><td>收益</td><td>近1天</td><td>近1周</td><td>近1月</td><td>近3月</td><td>近6月</td><td>近1年</td><td>近2年</td><td>近3年</td><td>近5年</td><td>7天赎回</td><td>30天赎回</td><td>1年赎回</td><td>2年赎回</td><td>任职时间</td><td>Rank</td></tr></thead>
+              <tbody id="tbResult">
+                @foreach (var item in (List<FundView>)ViewData["fvList"])
+                {
+                  <tr>
+                      <td><a href=@("/Fund/Test?FundNo="+item.FundNo) target="blank">@item.FundNo</a></td>
+                      <td><a href=@("http://fund.eastmoney.com/"+item.FundNo+".html?spm=search") target="blank">@item.FundName</a></td>
+                      <td>@item.TotalScale</td>
+                      <td>@Math.Round(item.TotalFee, 2)</td>
+                      <td>@Math.Round(item.OrgHoldRate, 2)</td>
+                      <td>@item.StockRate</td>
+                      <td>@item.Investment</td>
+                      <td style="color:@(item.ReturnRate>0?"red":"green")">@item.ReturnRate</td>
+                      <td style="color:@(item.R1day>0?"red":"green")">@item.R1day</td>
+                      <td style="color:@(item.R1week>0?"red":"green")">@item.R1week</td>
+                      <td style="color:@(item.R1month>0?"red":"green")">@item.R1month</td>
+                      <td style="color:@(item.R3month>0?"red":"green")">@item.R3month</td>
+                      <td style="color:@(item.R6month>0?"red":"green")">@item.R6month</td>
+                      <td style="color:@(item.R1year>0?"red":"green")">@item.R1year</td>
+                      <td style="color:@(item.R2year>0?"red":"green")">@item.R2year</td>
+                      <td style="color:@(item.R3year>0?"red":"green")">@item.R3year</td>
+                      <td style="color:@(item.R5year>0?"red":"green")">@item.R5year</td>
+                      <td>@item.Over7dFee</td>
+                      <td>@item.Over30dFee</td>
+                      <td>@item.Over1yFee</td>
+                      <td><a href=@("http://fundf10.eastmoney.com/jjfl_"+item.FundNo+".html") target="blank">@item.Over2yFee</a></td>
+                      <td>@item.DutyDate.ToString("yyyy-MM-dd")</td>
+                      <td>@item.Rank_Id</td>
+                      <td><button onclick="addOrRemoveWait('@item.FundNo.ToString()')">*</button></td>
+                  </tr>
+                }
+              </tbody>
+              <tfoot></tfoot>
+        </table>
+    </div>
+</body>
+</html>
+

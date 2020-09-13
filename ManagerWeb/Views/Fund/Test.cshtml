@@ -1,0 +1,201 @@
+﻿@{
+    Layout = null;
+    ViewData["Title"] = "Details";
+    
+}
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>@ViewData["FundName"]</title>
+    <!-- 引入 echarts.js -->
+    <script src="~/Scripts/echarts.min.js"></script>
+</head>
+<body>
+    <div style="text-align:center">
+        <table border="1" cellspacing="0" cellpadding="0" style="position:relative;top:15px;left:150px">
+            <tr><td>规模</td><td>手续费</td><td>非散率</td><td>持股率</td><td>任职时间</td><td>近1天</td><td>近1周</td><td>近1月</td><td>近3月</td><td>近6月</td><td>近1年</td><td>近2年</td><td>近3年</td><td>近5年</td><td>Linear1</td><td>Linear2</td><td>Linear3</td><td>Linear5</td><td>30天赎回</td><td>1年赎回</td></tr>
+            <tr>
+                <td>@ViewData["TotalScale"].ToString()</td>
+                <td>@ViewData["TotalFee"].ToString()</td>
+                <td>@ViewData["OrgHoldRate"].ToString()</td>
+                <td>@ViewData["StockRate"].ToString()</td>
+                <td>@ViewData["DutyDate"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R1day"])>0?"red":"green")">@ViewData["R1day"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R1week"])>0?"red":"green")">@ViewData["R1week"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R1month"])>0?"red":"green")">@ViewData["R1month"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R3month"])>0?"red":"green")">@ViewData["R3month"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R6month"])>0?"red":"green")">@ViewData["R6month"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R1year"])>0?"red":"green")">@ViewData["R1year"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R2year"])>0?"red":"green")">@ViewData["R2year"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R3year"])>0?"red":"green")">@ViewData["R3year"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["R5year"])>0?"red":"green")">@ViewData["R5year"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["Linear1"])>0?"red":"green")">@ViewData["Linear1"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["Linear2"])>0?"red":"green")">@ViewData["Linear2"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["Linear3"])>0?"red":"green")">@ViewData["Linear3"].ToString()</td>
+                <td style="color:@(Convert.ToDouble(ViewData["Linear5"])>0?"red":"green")">@ViewData["Linear5"].ToString()</td>
+                <td>@ViewData["Over30d"].ToString()</td>
+                <td><a href=@("http://fundf10.eastmoney.com/jjfl_"+@ViewData["FundNo"].ToString()+".html") target="blank">@ViewData["Over1yFee"].ToString()</a></td>
+            </tr>
+        </table>
+    </div>
+    <!-- 为ECharts准备一个具备大小（宽高）的Dom -->
+    <div id="main" style="width: 1500px;height:600px; position:absolute;top:70px" ></div>
+    <script type="text/javascript">
+        //dataX = @Html.Raw(ViewData["xStr"].ToString());
+        dataY = @Html.Raw(ViewData["yStr"].ToString());
+        dataYV1 = @Html.Raw(ViewData["y1ValueStr"].ToString());
+        dataYV2 = @Html.Raw(ViewData["y2ValueStr"].ToString());
+        dataYV3 = @Html.Raw(ViewData["y3ValueStr"].ToString());
+        dataYV4 = @Html.Raw(ViewData["y4ValueStr"].ToString());
+        dataYVM1 = @Html.Raw(ViewData["m1ValueStr"].ToString());
+        dataYVM2 = @Html.Raw(ViewData["m2ValueStr"].ToString());
+        dataYVD10 = @Html.Raw(ViewData["d10ValueStr"].ToString());
+        dataYVD5 = @Html.Raw(ViewData["d5ValueStr"].ToString());
+        fundName = "@ViewData["FundName"].ToString()";
+        fundNo = "@ViewData["FundNo"].ToString()";
+        dataPoint = @Html.Raw(ViewData["dataPointStr"].ToString());
+        /*此段js来自百度Echart.js插件*/
+        var dom = document.getElementById("main");
+                    var myChart = echarts.init(dom);
+                    var app = {};
+                    option = null;
+        option = {
+            title: {
+                text: fundNo+unescape(fundName.replace(/&#x/g,'%u').replace(/;/g,'')),
+                subtext: '' 
+            },
+            tooltip: {
+                trigger: 'axis'
+            },
+            legend: {
+                data: ['净值','一年趋势','二年趋势','三年趋势','五年趋势','1月趋势','2月趋势','10日趋势','5日趋势']
+            },
+            toolbox: {
+                show: true,
+                feature: {
+                    mark: { show: true },
+                    dataView : {show: true, readOnly: false},     //数据视图按钮
+                    magicType: { show: true, type: ['line', 'bar'] },
+                    restore : {show: true},       //图表右上角刷新按钮
+                    saveAsImage: { show: true }
+                }
+            },
+            calculable: true,
+            xAxis: [
+                {
+                    type: 'time',
+                    boundaryGap: false,
+
+                    //data: dataX
+                }
+            ],
+            yAxis: [
+                {
+                    scale: true,
+                    type: 'value',
+                    axisLabel: {
+                        formatter: function(v){
+                            return v.toFixed(2);
+                        }
+                    }
+                }
+            ],
+            dataZoom: [
+                {   // 这个dataZoom组件，默认控制x轴。
+                    type: 'slider', // 这个 dataZoom 组件是 slider 型 dataZoom 组件
+                    start: 82,      // 左边在 10% 的位置。
+                    end: 100         // 右边在 60% 的位置。
+                }
+            ],
+            series: [
+                {
+                    name: '净值',
+                    type: 'line',
+                    symbol: "none",
+                    symbolSize: 30,
+                    data: dataY,
+                    markPoint: {
+                        //itemStyle: {
+                        //    color: '#00CD68'
+                        //},
+                        symbolSize:50,
+                        data: dataPoint
+                    }//,
+                    //markLine:{
+                    //    data: [{ type: 'max', name: '最大值' }],
+                    //    lineStyle:
+                    //}
+
+                },
+                {
+                    name: '一年趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYV1
+                }
+                ,
+                {
+                    name: '二年趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYV2
+                }
+                ,
+                {
+                    name: '三年趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYV3
+                }
+                ,
+                {
+                    name: '五年趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYV4
+                }
+                ,
+                {
+                    name: '1月趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYVM1
+                }
+                ,
+                {
+                    name: '2月趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYVM2
+                }
+                ,
+                {
+                    name: '10日趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYVD10
+                }
+                ,
+                {
+                    name: '5日趋势',
+                    type: 'line',
+                    symbol: "none",
+                    data: dataYVD5
+                }
+            ]
+        };
+
+        ;
+        if (option && typeof option === "object") {
+            myChart.setOption(option, true);
+        }
+
+        myChart.on('click', { seriesName: '净值' }, function () {
+            option.series[0].markPoint.data=null;
+            myChart.setOption(option, true);
+         });
+
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,112 @@
+﻿@{
+    //Layout = null;
+    string str1 = DateTime.Now.ToString("yyyy-MM-dd");
+}
+@model Solo.Model.TaskInfo
+
+<html>
+<head>
+    <script src="~/Scripts/jquery-1.7.1.js"></script>
+    <script src="~/Scripts/jquery-1.7.1.min.js"></script>
+    <script type="text/javascript">
+        date = @Html.Raw('"'+Model.DeadLine.ToString("yyyy-MM-dd")+'"');
+        type = @Html.Raw('"'+ViewData["Type"].ToString()+'"');
+
+        $(function () {
+            $("#inputDT").val(date);
+            console.log(date);
+            $("#status").val(@Model.Status);
+            $('#type').val(type);
+        });
+
+        function SubForm() {
+            $("#editForm").submit();
+        }
+
+        function Update() {
+            $.ajax({
+                    url: '/Task/Update',
+                    type: 'post',
+                    data: {
+                        id: $("#taskId").val(),
+                        taskName: $("#inputName").val(),
+                        deadLine: $("#inputDT").val(),
+                        duration: $("#inputDuration").val(),
+                        skillName: $("#inputSkillName").val(),
+                        type: $("#type").val(),
+                        status: $("#status").val(),
+                        detail: $("#detail").val()
+                    },
+                    error: function (data) {
+                        alert('请求失败');
+                    },
+                    success: function (data) {
+                        //$("#" + fundnoStr).text("-");//改变标签内容值'
+                        if (data == true) {
+                            alert('修改成功');
+                        }
+                        else {
+                            alert('修改失败');
+                        }
+                    }
+                })
+        }
+    </script>
+</head>
+<body>
+    <div>
+        <form id="editForm" method="post">
+            <div class="container">
+                <div class="row">
+                    <input id="taskId" type="hidden" name="id" value=@Model.Id />
+                    <div class="col-md-1">TaskName:</div>
+                    <div class="col-md-2"><input type="text" name="taskName" id="inputName" value=@Html.Raw(Model.taskName) /></div>
+                    <div class="col-md-1">DeadLine:</div>
+                    <div class="col-md-2"><input type="date" id="inputDT" name="deadLine" /></div>
+                    <div class="col-md-1">Duration:</div>
+                    <div class="col-md-2"><input type="text" id="inputDuration" name="duration" value=@Model.Duration /></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-1">SkillName:</div>
+                    <div class="col-md-2"><input type="text" name="skillName" id="inputSkillName" value=@Html.Raw(Model.SkillName) /></div>
+                    <div class="col-md-1">Type:</div>
+                    <div class="col-md-2">
+                        <select id="type" onchange=selectChange() name="type">
+                            <option value="DotNet">DotNet</option>
+                            <option value="ImageProcess">ImageProcess</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">Status:</div>
+                    <div class="col-md-2">
+                        <select id="status" onchange=selectChange() name="status">
+                            <option value=1>Overtime</option>
+                            <option value=2>Finish</option>
+                            <option value=3>UnFinish</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <textarea rows="15" cols="300" style="text-align:left;width:888px;height:310px" name="detail" id="detail">
+                         @Html.Raw(Model.Detail)
+                    </textarea>
+                </div>
+            </div>
+            @*<table>
+                <tr>
+                    <td>taskName:</td>
+                    <td><input type="text" name="taskName" id="inputName" /></td>
+                </tr>
+                <tr>
+                    <td>DeadLine:</td>
+                    <td><input type="date" id="inputDT" name="DeadLine" value=@str1></td>
+                <tr><td></td><td><button onclick=SubForm()>添加</button></td></tr>
+            </table>*@
+        </form>
+        <div class="row">
+            <div class="col-md-10"></div>
+            <div class="col-md-2"><button onclick=Update()>修改</button></div>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,8 @@
+E:\WorkProject\ManagerWeb\Solo.Model\bin\Debug\netcoreapp3.1\Solo.Model.deps.json
+E:\WorkProject\ManagerWeb\Solo.Model\bin\Debug\netcoreapp3.1\Solo.Model.dll
+E:\WorkProject\ManagerWeb\Solo.Model\bin\Debug\netcoreapp3.1\Solo.Model.pdb
+E:\WorkProject\ManagerWeb\Solo.Model\obj\Debug\netcoreapp3.1\Solo.Model.AssemblyInfoInputs.cache
+E:\WorkProject\ManagerWeb\Solo.Model\obj\Debug\netcoreapp3.1\Solo.Model.AssemblyInfo.cs
+E:\WorkProject\ManagerWeb\Solo.Model\obj\Debug\netcoreapp3.1\Solo.Model.dll
+E:\WorkProject\ManagerWeb\Solo.Model\obj\Debug\netcoreapp3.1\Solo.Model.pdb
+E:\WorkProject\ManagerWeb\Solo.Model\obj\Debug\netcoreapp3.1\Solo.Model.csprojAssemblyReference.cache

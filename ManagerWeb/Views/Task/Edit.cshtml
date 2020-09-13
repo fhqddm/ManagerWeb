@@ -1,0 +1,70 @@
+﻿@{
+    //Layout = null;
+    string str1 = DateTime.Now.ToString("yyyy-MM-dd");
+}
+
+<html>
+<head>
+    <script src="~/Scripts/jquery-1.7.1.js"></script>
+    <script src="~/Scripts/jquery-1.7.1.min.js"></script>
+    <script type="text/javascript">
+        function SubForm() {
+            $("#editForm").submit();
+        }
+    </script>
+</head>
+<body>
+    <div>
+        <form action="/Task/Add" id="editForm" method="post">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-1">TaskName:</div>
+                    <div class="col-md-2"><input type="text" name="taskName" id="inputName"  /></div>
+                    <div class="col-md-1">DeadLine:</div>
+                    <div class="col-md-2"><input type="date" id="inputDT" name="deadLine" value=@DateTime.Now.ToString("yyyy-MM-dd") /></div>
+                    <div class="col-md-1">Duration:</div>
+                    <div class="col-md-2"><input type="text" id="inputDuration" name="duration" /></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-1">SkillName:</div>
+                    <div class="col-md-2"><input type="text" name="skillName" id="inputSkillName" /></div>
+                    <div class="col-md-1">Type:</div>
+                    <div class="col-md-2">
+                        <select id="type" onchange=selectChange()>
+                            <option value="DotNet">DotNet</option>
+                            <option value="ImageProcess">ImageProcess</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">Status:</div>
+                    <div class="col-md-2">
+                        <select id="status" onchange=selectChange()>
+                            <option value=0>UnFinish</option>
+                            <option value=1>Overtime</option>
+                            <option value=2>Finish</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <textarea rows="15" cols="300" style="text-align:left" name="Detail">
+                    </textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-10"></div>
+                    <div class="col-md-2"><button onclick=SubForm()>添加</button></div>
+                </div>
+            </div>
+            @*<table>
+                <tr>
+                    <td>taskName:</td>
+                    <td><input type="text" name="taskName" id="inputName" /></td>
+                </tr>
+                <tr>
+                    <td>DeadLine:</td>
+                    <td><input type="date" id="inputDT" name="DeadLine" value=@str1></td>
+                <tr><td></td><td><button onclick=SubForm()>添加</button></td></tr>
+            </table>*@
+        </form>
+    </div>
+</body>
+</html>
+
