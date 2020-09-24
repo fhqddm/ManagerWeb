@@ -43,6 +43,14 @@ namespace ManagerWeb.Controllers
             return View();
         }
 
+        [HttpPost]
+        [AllowAnonymous]
+        public ActionResult GetMonthTask(DateTime inputTime)
+        {
+            List<TaskInfo> tiList = _taskInfoService.getTaskInfoByDate(inputTime.Year, inputTime.Month, DateHelper.getDayCountByTime(inputTime));
+            return Ok(tiList);
+        }
+
         [AllowAnonymous]
         public ActionResult Plan()
         {
@@ -145,14 +153,14 @@ namespace ManagerWeb.Controllers
             //taskInfo.DeadLine = DeadLine;
             if (ModelState.IsValid)
             {
-                if (taskInfo.DeadLine < new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 0))
-                {
-                    taskInfo.Status = 1;
-                }
-                else
-                {
-                    taskInfo.Status = 3;
-                }
+                //if (taskInfo.DeadLine < new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.Now.Day, 0, 0, 0))
+                //{
+                //    taskInfo.Status = 1;
+                //}
+                //else
+                //{
+                //    taskInfo.Status = 3;
+                //}
 
                 if (_taskInfoService.InsertTaskInfo(taskInfo) == 1)
                 {

@@ -6,3 +6,11 @@ E:\WorkProject\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.Assemb
 E:\WorkProject\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.dll
 E:\WorkProject\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.pdb
 E:\WorkProject\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.csprojAssemblyReference.cache
+D:\Project\ManagerWeb\Solo.Common\bin\Debug\netcoreapp3.1\Solo.Common.deps.json
+D:\Project\ManagerWeb\Solo.Common\bin\Debug\netcoreapp3.1\Solo.Common.dll
+D:\Project\ManagerWeb\Solo.Common\bin\Debug\netcoreapp3.1\Solo.Common.pdb
+D:\Project\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.csprojAssemblyReference.cache
+D:\Project\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.AssemblyInfoInputs.cache
+D:\Project\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.AssemblyInfo.cs
+D:\Project\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.dll
+D:\Project\ManagerWeb\Solo.Common\obj\Debug\netcoreapp3.1\Solo.Common.pdb

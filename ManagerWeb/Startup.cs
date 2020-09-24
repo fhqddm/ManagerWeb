@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,6 +32,16 @@ namespace ManagerWeb
             {
                 services.AddSingleton<IFundInfoService, FundInfoMsSqlService>();
             }
+            //添加cors 服务 配置跨域处理   
+            services.AddCors(options =>
+            {
+                options.AddPolicy("any", builder =>
+                {
+                    builder.WithMethods("GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS")
+                    //.AllowCredentials()//指定处理cookie
+                .AllowAnyOrigin().AllowAnyHeader(); //允许任何来源的主机访问
+                });
+            });
             services.AddSingleton<IJobService, JobService>();
             services.AddSingleton<ITaskInfoService, TaskInfoEFService>();
             services.AddSingleton<IUserInfoService, UserInfoService>();            
@@ -63,6 +74,10 @@ namespace ManagerWeb
                 config.AddPolicy("Admin", policyBuilder => policyBuilder.RequireClaim(ClaimTypes.Role, "Admin"));
 
             });
+            //services.AddMvc(option =>
+            //{
+            //    option.Filters.Add(new IgnoreAntiforgeryTokenAttribute());
+            //});
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -88,6 +103,14 @@ namespace ManagerWeb
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
             });
 
+            ////设置允许所有来源跨域
+            //app.UseCors(options =>
+            //{
+            //    options.AllowAnyHeader();
+            //    options.AllowAnyMethod();
+            //    options.AllowAnyOrigin();
+            //    options.AllowCredentials();
+            //});
 
             // who are you?
             app.UseAuthentication();
@@ -99,6 +122,8 @@ namespace ManagerWeb
             //这说明Asp.Net OWIN框架中MiddleWare的调用顺序会对系统功能产生很大的影响，各个MiddleWare的调用顺序一定不能反
             app.UseAuthorization();
 
+            //配置Cors
+            app.UseCors("any");
 
             app.UseEndpoints(endpoints =>
             {

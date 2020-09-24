@@ -55,6 +55,7 @@ namespace ManagerWeb.Controllers
         }
 
         [HttpPost]
+        //[IgnoreAntiforgeryToken]
 
         public ActionResult<IEnumerable<FundView>> AjaxSearch(FundQuery query)
         {
