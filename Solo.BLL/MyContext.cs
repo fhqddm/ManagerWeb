@@ -21,8 +21,13 @@ namespace Solo.BLL
         public DbSet<Job> Jobs { get; set; }
         public DbSet<Skill> Skills { get; set; }
         public DbSet<Valuation> Valuations { get; set; }
-
-
+        public DbSet<ManagerInfo> ManagerInfos { get; set; }
+        public DbSet<StockInfo> StockInfos { get; set; }
+        public DbSet<MasterPosition> MasterPositions { get; set; }
+        public DbSet<DailyRate> DailyRates { get; set; }
+        public DbSet<Suggest> Suggests { get; set; }
+        public DbSet<MyStock> MyStocks { get; set; }
+        public DbSet<IndexInfo> IndexInfos { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

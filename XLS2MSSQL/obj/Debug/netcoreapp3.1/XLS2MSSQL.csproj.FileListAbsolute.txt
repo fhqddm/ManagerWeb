@@ -83,3 +83,6 @@ E:\WorkProject\ManagerWeb\XLS2MSSQL\bin\Debug\netcoreapp3.1\MySql.Data.EntityFra
 E:\WorkProject\ManagerWeb\XLS2MSSQL\bin\Debug\netcoreapp3.1\Renci.SshNet.dll
 E:\WorkProject\ManagerWeb\XLS2MSSQL\bin\Debug\netcoreapp3.1\SshNet.Security.Cryptography.dll
 E:\WorkProject\ManagerWeb\XLS2MSSQL\bin\Debug\netcoreapp3.1\System.Xml.XPath.XmlDocument.dll
+D:\Project\ManagerWeb\XLS2MSSQL\obj\Debug\netcoreapp3.1\XLS2MSSQL.csprojAssemblyReference.cache
+D:\Project\ManagerWeb\XLS2MSSQL\obj\Debug\netcoreapp3.1\XLS2MSSQL.AssemblyInfoInputs.cache
+D:\Project\ManagerWeb\XLS2MSSQL\obj\Debug\netcoreapp3.1\XLS2MSSQL.AssemblyInfo.cs

@@ -8,8 +8,7 @@ namespace Solo.Model.ViewModel
     {
         public double AR1day { get; set; }
         public double CR1day { get; set; }
-        public double SR1day { get; set; }
-        public double AR7day { get; set; }
+        public double SR1day { get; set; } 
         public double AR1month { get; set; }
         public double XYGRate { get; set; }
         public double KJRate { get; set; }

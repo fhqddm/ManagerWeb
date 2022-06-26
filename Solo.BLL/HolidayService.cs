@@ -1,5 +1,7 @@
-﻿using Solo.Common;
+﻿using Microsoft.Extensions.Configuration;
+using Solo.Common;
 using Solo.Model;
+using Solo.Model.ViewModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -36,6 +38,29 @@ namespace Solo.BLL
 
             //}
             return dtList;
+            
+        }
+
+        public bool IsHoliday(DateTime dt ,bool resetRedis = false)
+        {
+            RedisConn readConn = new RedisConn(true);
+            var redisResult = readConn.GetRedisData<bool>("IsHoliday");
+            if (resetRedis)
+            {
+                using (MyContext myContext = new MyContext())
+                {
+                    RedisConn writeConn = new RedisConn(false);
+                    bool result = myContext.Holidays.Where(x => x.Year == dt.Year && x.Month == dt.Month && x.Day == dt.Day).ToList().Count > 0;
+                    writeConn.SetRedisData("IsHoliday", result);
+                    writeConn.Close();
+                    return result;
+                }
+            }
+            else
+            {
+                readConn.Close();
+                return redisResult;
+            }
             
         }
     }

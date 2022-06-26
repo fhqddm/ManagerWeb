@@ -10,8 +10,10 @@ namespace Solo.Model
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
         public string FundNo { get; set; }
-        public double TransactionValue { get;set;} 
+        public double TransactionValue { get;set;}
+        public double Shares { get; set; }
         public DateTime ConfirmTime { get; set; }
-     
+        public int UserId { get; set; }
+
     }
 }

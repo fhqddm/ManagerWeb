@@ -19,6 +19,9 @@ namespace Solo.Model
         public string Email { get; set; }
 
         public string RoleId { get; set; }
-        
+
+        //public string PhoneNum { get; set; }
+        //public DateTime BirthDate { get; set; }
+
     }
 }

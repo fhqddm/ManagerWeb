@@ -19,11 +19,12 @@ namespace Solo.BLL
                 string sql = "";
                 if (transactionInfo.TransactionValue>0)
                 {
-                    sql = $"call BuyIn('{transactionInfo.FundNo}','{transactionInfo.ConfirmTime.ToString("yyyy-MM-dd")}',{transactionInfo.TransactionValue})";
+                    sql = $"call BuyIn('{transactionInfo.FundNo}','{transactionInfo.ConfirmTime.ToString("yyyy-MM-dd")}',{transactionInfo.TransactionValue},{transactionInfo.UserId})";
                 }
                 else
                 {
-                    sql = $"call SellOut('{transactionInfo.FundNo}','{transactionInfo.ConfirmTime.ToString("yyyy-MM-dd")}',{transactionInfo.TransactionValue})";
+                    //sql = $"call SellOut('{transactionInfo.FundNo}','{transactionInfo.ConfirmTime.ToString("yyyy-MM-dd")}',{transactionInfo.TransactionValue},{transactionInfo.UserId})";
+                    sql = $"call SellOut1('{transactionInfo.FundNo}','{transactionInfo.ConfirmTime.ToString("yyyy-MM-dd")}',{transactionInfo.Shares},{transactionInfo.UserId})";
                 }
                 myContext.Database.ExecuteSqlCommandAsync(sql);
                 return 1;
@@ -31,12 +32,12 @@ namespace Solo.BLL
             }
         }
 
-        public List<TransactionInfo> GetRecentTransactions()
+        public List<TransactionInfo> GetRecentTransactions(int userId)
         {
             using (MyContext myContext = new MyContext())
             {
                 var date7 = DateHelper.getFormatDateTime(DateTime.Now.AddDays(-6));
-                var list = myContext.TransactionInfos.Where(x => x.ConfirmTime >= date7).ToList();
+                var list = myContext.TransactionInfos.Where(x => x.ConfirmTime >= date7 && x.UserId == userId).ToList();
                 List<string> flist = new List<string>();
                 foreach (var item in list)
                 {
@@ -58,12 +59,12 @@ namespace Solo.BLL
             }
         }
 
-        public List<TransactionInfo> GetTransactionInfosByFundNo(string FundNo)
+        public List<TransactionInfo> GetTransactionInfosByFundNo(string FundNo,int UserId)
         {
             using (MyContext myContext = new MyContext())
             {
 
-                return myContext.TransactionInfos.Where(x => x.FundNo == FundNo).ToList();
+                return myContext.TransactionInfos.Where(x => x.FundNo == FundNo && x.UserId == UserId).ToList();
 
             }
         }

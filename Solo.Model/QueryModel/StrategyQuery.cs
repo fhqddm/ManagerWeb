@@ -14,5 +14,6 @@ namespace Solo.Model.QueryModel
         public bool isnew { get; set; }
 
         public int bondstock { get; set; } // 1.Bond 2.Stock 3.All
+        public int UserId { get; set; }
     }
 }

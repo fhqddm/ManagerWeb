@@ -26,6 +26,7 @@ namespace Solo.Common
                 List<Point> _PList6 = new List<Point>();
                 List<Point> _PList7 = new List<Point>();
                 List<Point> _PList8 = new List<Point>();
+                List<Point> _PList9 = new List<Point>();
                 List<int> begins = new List<int> { 0, 0, 0 ,0,0,0,0,0,0};
 
 
@@ -82,6 +83,11 @@ namespace Solo.Common
                                 {
                                     // _PList1.Add(new Point((double)sheet.Rows[i][0], (double)sheet.Rows[i][1]));
                                     _PList1.Add(new Point(i, (double)sheet.Rows[i][1]));
+                                }
+                                if (i > (rows - 123))
+                                {
+                                    // _PList1.Add(new Point((double)sheet.Rows[i][0], (double)sheet.Rows[i][1]));
+                                    _PList9.Add(new Point(i, (double)sheet.Rows[i][1]));
                                 }
                                 //60日
                                 if (i > (rows - 61))

@@ -28,3 +28,5 @@ D:\Project\ManagerWeb\Solo.BLL\obj\Debug\netcoreapp3.1\Solo.BLL.AssemblyInfo.cs
 D:\Project\ManagerWeb\Solo.BLL\obj\Debug\netcoreapp3.1\Solo.BLL.csproj.CopyComplete
 D:\Project\ManagerWeb\Solo.BLL\obj\Debug\netcoreapp3.1\Solo.BLL.dll
 D:\Project\ManagerWeb\Solo.BLL\obj\Debug\netcoreapp3.1\Solo.BLL.pdb
+D:\Project\ManagerWeb\Solo.BLL\obj\Debug\netcoreapp3.1\Solo.BLL.csproj.CoreCompileInputs.cache
+D:\Project\ManagerWeb\Solo.BLL\obj\Debug\netcoreapp3.1\Solo.BLL.genruntimeconfig.cache

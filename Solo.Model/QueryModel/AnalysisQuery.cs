@@ -50,10 +50,11 @@ namespace Solo.Model.QueryModel
         public Nullable<int> MinFundScore_Id { get; set; }
         public Nullable<int> MaxManagerScore_Id { get; set; }
         public Nullable<int> MinManagerScore_Id { get; set; }
-        public int status { get; set; }
+        public int status { get; set; } //
         public OWN own { get; set; }
         public bool isnew { get; set; }
         public int bondstock { get; set; } // 1.Bond 2.Stock 3.All
+        
 
     }
 }

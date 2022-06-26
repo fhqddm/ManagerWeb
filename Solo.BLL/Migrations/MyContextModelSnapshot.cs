@@ -14,8 +14,46 @@ namespace Solo.BLL.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "3.1.3")
+                .HasAnnotation("ProductVersion", "3.1.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            modelBuilder.Entity("Solo.Model.DailyRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<double>("Alex")
+                        .HasColumnType("double");
+
+                    b.Property<double>("Alex_My")
+                        .HasColumnType("double");
+
+                    b.Property<double>("CYB")
+                        .HasColumnType("double");
+
+                    b.Property<DateTime>("DateTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<double>("HS300")
+                        .HasColumnType("double");
+
+                    b.Property<double>("KJ")
+                        .HasColumnType("double");
+
+                    b.Property<double>("My")
+                        .HasColumnType("double");
+
+                    b.Property<double>("WYBCG")
+                        .HasColumnType("double");
+
+                    b.Property<double>("XYG")
+                        .HasColumnType("double");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DailyRates");
+                });
 
             modelBuilder.Entity("Solo.Model.FundDailyIDetail", b =>
                 {
@@ -32,7 +70,43 @@ namespace Solo.BLL.Migrations
                     b.Property<string>("FundNo")
                         .HasColumnType("text");
 
+                    b.Property<float?>("MA10")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("MA20")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("MA5")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("MA60")
+                        .HasColumnType("float");
+
                     b.Property<float?>("NetValue")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("PureNet")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Seperate")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Slope10")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Slope20")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Slope60")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Trend10")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Trend20")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Trend60")
                         .HasColumnType("float");
 
                     b.Property<float?>("UnitMoney")
@@ -52,14 +126,47 @@ namespace Solo.BLL.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
+                    b.Property<float?>("A2015")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("A2016")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("A2017")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("A2018")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("A2019")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("A2020")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("A2021")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("A2022")
+                        .HasColumnType("float");
+
                     b.Property<float?>("BuyRate")
                         .HasColumnType("float");
+
+                    b.Property<string>("Combines")
+                        .HasColumnType("text");
 
                     b.Property<float?>("CustodyFee")
                         .HasColumnType("float");
 
                     b.Property<DateTime?>("DutyDate")
                         .HasColumnType("datetime");
+
+                    b.Property<double?>("Estimate")
+                        .HasColumnType("double");
+
+                    b.Property<string>("FundManagerNo")
+                        .HasColumnType("text");
 
                     b.Property<string>("FundName")
                         .HasColumnType("text");
@@ -70,6 +177,9 @@ namespace Solo.BLL.Migrations
                     b.Property<float?>("FundScore")
                         .HasColumnType("float");
 
+                    b.Property<string>("FundType")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("FundUpdateTime")
                         .HasColumnType("datetime");
 
@@ -78,6 +188,15 @@ namespace Solo.BLL.Migrations
 
                     b.Property<float?>("ManagerScore")
                         .HasColumnType("float");
+
+                    b.Property<float?>("Maxretra")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Maxretra5")
+                        .HasColumnType("float");
+
+                    b.Property<int?>("MorningStar")
+                        .HasColumnType("int");
 
                     b.Property<float?>("NetValue")
                         .HasColumnType("float");
@@ -127,6 +246,12 @@ namespace Solo.BLL.Migrations
                     b.Property<float?>("R2020")
                         .HasColumnType("float");
 
+                    b.Property<float?>("R2021")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("R2022")
+                        .HasColumnType("float");
+
                     b.Property<float?>("R2year")
                         .HasColumnType("float");
 
@@ -142,16 +267,55 @@ namespace Solo.BLL.Migrations
                     b.Property<float?>("R6month")
                         .HasColumnType("float");
 
-                    b.Property<float?>("ReturnRate")
-                        .HasColumnType("float");
-
                     b.Property<float?>("SaleFee")
                         .HasColumnType("float");
+
+                    b.Property<float?>("Sharp")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Sharp2")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Sharp3")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Stddev")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Stddev2")
+                        .HasColumnType("float");
+
+                    b.Property<float?>("Stddev3")
+                        .HasColumnType("float");
+
+                    b.Property<string>("StockNames")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StockNos")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StockPositions")
+                        .HasColumnType("text");
 
                     b.Property<float?>("StockRate")
                         .HasColumnType("float");
 
+                    b.Property<string>("Strategy")
+                        .HasColumnType("text");
+
                     b.Property<float?>("TotalScale")
+                        .HasColumnType("float");
+
+                    b.Property<double>("TotalUnitMoney")
+                        .HasColumnType("double");
+
+                    b.Property<string>("Turnovers")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("ValuationId")
+                        .HasColumnType("int");
+
+                    b.Property<float?>("Volatility")
                         .HasColumnType("float");
 
                     b.HasKey("Id");
@@ -182,6 +346,47 @@ namespace Solo.BLL.Migrations
                     b.ToTable("Holidays");
                 });
 
+            modelBuilder.Entity("Solo.Model.IndexInfo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("DjCode")
+                        .HasColumnType("text");
+
+                    b.Property<double>("GXL")
+                        .HasColumnType("double");
+
+                    b.Property<string>("IndexCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IndexName")
+                        .HasColumnType("text");
+
+                    b.Property<int>("IndexValua")
+                        .HasColumnType("int");
+
+                    b.Property<double>("PB")
+                        .HasColumnType("double");
+
+                    b.Property<double>("PBP100")
+                        .HasColumnType("double");
+
+                    b.Property<double>("PE")
+                        .HasColumnType("double");
+
+                    b.Property<double>("PEP100")
+                        .HasColumnType("double");
+
+                    b.Property<double>("ROE")
+                        .HasColumnType("double");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("IndexInfos");
+                });
+
             modelBuilder.Entity("Solo.Model.Job", b =>
                 {
                     b.Property<int>("Id")
@@ -205,6 +410,93 @@ namespace Solo.BLL.Migrations
                     b.ToTable("Jobs");
                 });
 
+            modelBuilder.Entity("Solo.Model.ManagerInfo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<double>("BestReturn")
+                        .HasColumnType("double");
+
+                    b.Property<int>("DutyTime")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FundCompanyName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FundCompanyNo")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FundManagerName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FundManagerNo")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MainFundName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MainFundNo")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ManagerFundNames")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ManagerFundNos")
+                        .HasColumnType("text");
+
+                    b.Property<double>("ManagerScale")
+                        .HasColumnType("double");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ManagerInfos");
+                });
+
+            modelBuilder.Entity("Solo.Model.MasterPosition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<double>("ALEX_Position")
+                        .HasColumnType("double");
+
+                    b.Property<string>("FundNo")
+                        .HasColumnType("text");
+
+                    b.Property<double>("KJ_Position")
+                        .HasColumnType("double");
+
+                    b.Property<double>("XYG_Position")
+                        .HasColumnType("double");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MasterPositions");
+                });
+
+            modelBuilder.Entity("Solo.Model.MyStock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("StockName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StockNo")
+                        .HasColumnType("text");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MyStocks");
+                });
+
             modelBuilder.Entity("Solo.Model.Skill", b =>
                 {
                     b.Property<int>("Id")
@@ -223,6 +515,100 @@ namespace Solo.BLL.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Skills");
+                });
+
+            modelBuilder.Entity("Solo.Model.StockInfo", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<double>("FundTop10HoldRate")
+                        .HasColumnType("double");
+
+                    b.Property<double>("GrossProfit")
+                        .HasColumnType("double");
+
+                    b.Property<double>("HS300")
+                        .HasColumnType("double");
+
+                    b.Property<string>("IndustryId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IndustryName")
+                        .HasColumnType("text");
+
+                    b.Property<double>("Market")
+                        .HasColumnType("double");
+
+                    b.Property<double>("MarketCap")
+                        .HasColumnType("double");
+
+                    b.Property<double>("NetAssets")
+                        .HasColumnType("double");
+
+                    b.Property<double>("NetMargin")
+                        .HasColumnType("double");
+
+                    b.Property<double>("NetRate")
+                        .HasColumnType("double");
+
+                    b.Property<double>("P_B_Ratio")
+                        .HasColumnType("double");
+
+                    b.Property<double>("P_E_Ratio")
+                        .HasColumnType("double");
+
+                    b.Property<double>("Price")
+                        .HasColumnType("double");
+
+                    b.Property<double>("R1day")
+                        .HasColumnType("double");
+
+                    b.Property<double>("ROE")
+                        .HasColumnType("double");
+
+                    b.Property<double>("SZ50")
+                        .HasColumnType("double");
+
+                    b.Property<string>("StockName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StockNo")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("StockUpdateTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<double>("ZZ1000")
+                        .HasColumnType("double");
+
+                    b.Property<double>("ZZ500")
+                        .HasColumnType("double");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("StockInfos");
+                });
+
+            modelBuilder.Entity("Solo.Model.Suggest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SubmitTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Suggests");
                 });
 
             modelBuilder.Entity("Solo.Model.TaskInfo", b =>
@@ -268,8 +654,14 @@ namespace Solo.BLL.Migrations
                     b.Property<string>("FundNo")
                         .HasColumnType("text");
 
+                    b.Property<double>("Shares")
+                        .HasColumnType("double");
+
                     b.Property<double>("TransactionValue")
                         .HasColumnType("double");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -324,25 +716,28 @@ namespace Solo.BLL.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    b.Property<double>("Estimate")
+                    b.Property<double>("Cost")
                         .HasColumnType("double");
 
                     b.Property<string>("FundNo")
                         .HasColumnType("text");
 
-                    b.Property<double?>("InNetValue")
+                    b.Property<double>("HoldShares")
                         .HasColumnType("double");
 
                     b.Property<int>("Investment")
                         .HasColumnType("int");
 
+                    b.Property<float?>("ReturnRate")
+                        .HasColumnType("float");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<string>("Strategy")
-                        .HasColumnType("text");
+                    b.Property<double>("TotalBonus")
+                        .HasColumnType("double");
 
-                    b.Property<int>("ValuationId")
+                    b.Property<int>("UserId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");

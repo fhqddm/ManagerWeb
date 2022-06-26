@@ -9,8 +9,8 @@ E:\WorkProject\ManagerWeb\Solo.Common\obj\Release\netcoreapp3.1\Solo.Common.cspr
 D:\Project\ManagerWeb\Solo.Common\bin\Release\netcoreapp3.1\Solo.Common.deps.json
 D:\Project\ManagerWeb\Solo.Common\bin\Release\netcoreapp3.1\Solo.Common.dll
 D:\Project\ManagerWeb\Solo.Common\bin\Release\netcoreapp3.1\Solo.Common.pdb
-D:\Project\ManagerWeb\Solo.Common\obj\Release\netcoreapp3.1\Solo.Common.csprojAssemblyReference.cache
 D:\Project\ManagerWeb\Solo.Common\obj\Release\netcoreapp3.1\Solo.Common.AssemblyInfoInputs.cache
 D:\Project\ManagerWeb\Solo.Common\obj\Release\netcoreapp3.1\Solo.Common.AssemblyInfo.cs
 D:\Project\ManagerWeb\Solo.Common\obj\Release\netcoreapp3.1\Solo.Common.dll
 D:\Project\ManagerWeb\Solo.Common\obj\Release\netcoreapp3.1\Solo.Common.pdb
+D:\Project\ManagerWeb\Solo.Common\obj\Release\netcoreapp3.1\Solo.Common.csprojAssemblyReference.cache

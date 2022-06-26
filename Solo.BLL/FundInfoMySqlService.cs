@@ -11,6 +11,10 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Text;
 using MySqlHelper = Solo.Common.MySqlHelper;
+using System.Linq;
+using AutoMapper;
+using Newtonsoft.Json;
+using System.Threading;
 
 namespace Solo.BLL
 {
@@ -19,9 +23,173 @@ namespace Solo.BLL
 
         public List<FundView> GetFundInfosByQuery(FundQuery fundQuery)
         {
+
+            //using (MyContext context = new MyContext())
+            //{
+            //    var fundInfos = context.FundInfos;
+            //    string lastFundNo = "";
+            //    foreach (var fundInfo in fundInfos)
+            //    {
+            //        lastFundNo = fundInfo.FundNo;
+            //    }
+            //}
+
             List<FundView> list = new List<FundView>();
-            string sql = "select *,(IFNULL(BuyRate, 0)+IFNULL(ManagerFee, 0)+IFNULL(CustodyFee, 0)+IFNULL(SaleFee, 0)) as TotalFee,mf.Status,mf.Investment from FundInfos fi left join MyFunds mf on fi.FundNo = mf.FundNo left join MyScore ms on fi.FundNo=ms.FundNo ";
-            sql = sql + SetFundString(fundQuery)+" order by R1day desc";
+            //RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
+            RedisConn readConn = new RedisConn(true);
+            
+            var redisResult = readConn.GetRedisData<List<FundView>>("FundViews");
+            if (fundQuery.resetRedis == false && redisResult == null)
+            {
+                int count = 0;
+                while (count <5 && redisResult == null)
+                {
+                    count++;
+                    Console.WriteLine("Can not get redis FundViews");
+                    Thread.Sleep(250);
+                    redisResult = readConn.GetRedisData<List<FundView>>("FundViews");
+                   
+                    
+                }
+
+            }
+            if (redisResult != null && redisResult.Count >= 710 && !fundQuery.resetRedis)
+            {
+                if (fundQuery.UserId > 0)
+                {
+                    var redisMyfunds = readConn.GetRedisData<List<MyFund>>("MyFunds").Where(x=>x.UserId==fundQuery.UserId).ToList();
+
+                    foreach (var myfund in redisMyfunds)
+                    {
+                        redisResult.Where(x => x.FundNo == myfund.FundNo).SingleOrDefault().UserId = myfund.UserId;
+                        redisResult.Where(x => x.FundNo == myfund.FundNo).SingleOrDefault().status = myfund.Status;
+                        redisResult.Where(x => x.FundNo == myfund.FundNo).SingleOrDefault().Investment = myfund.Investment;
+                        //redisResult.Where(x => x.FundNo == myfund.FundNo).SingleOrDefault().ReturnRate = Math.Round(Convert.ToDouble(myfund.ReturnRate * 100), 2);
+                        double unitvalue = redisResult.Where(x => x.FundNo == myfund.FundNo).SingleOrDefault().NetValue;
+                        double cost = myfund.Cost;
+                        double totalshares = myfund.HoldShares;
+                        double totalbonus = myfund.TotalBonus;
+
+                        if (totalshares != 0 && cost != 0)
+                        {
+                            redisResult.Where(x => x.FundNo == myfund.FundNo).SingleOrDefault().ReturnRate = Math.Round((((totalshares * unitvalue + totalbonus) / (cost * totalshares)) - 1) * 100, 2);
+                        }
+                        else
+                        {
+                            redisResult.Where(x => x.FundNo == myfund.FundNo).SingleOrDefault().ReturnRate = 0;
+                        }
+                        
+                    }
+                    if (fundQuery.Status > 0)
+                    {
+                        redisResult = redisResult.Where(x => x.UserId == fundQuery.UserId).ToList();
+
+                        if (fundQuery.Status == 1 || fundQuery.Status == 2)
+                        {
+                            redisResult = redisResult.Where(x => x.status == fundQuery.Status).ToList();
+                        }
+                        else if (fundQuery.Status == 3)
+                        {
+                            redisResult = redisResult.Where(x => x.status > 0).ToList();
+                        }
+                    }                    
+                }
+                if (!string.IsNullOrEmpty(fundQuery.FundNo))
+                {
+                    redisResult = redisResult.Where(x => x.FundNo.Contains(fundQuery.FundNo)).ToList();
+                }
+                if (!string.IsNullOrEmpty(fundQuery.Strategy))
+                {
+                    redisResult = redisResult.Where(x => x.Strategy.Contains(fundQuery.Strategy)).ToList();
+                }
+                if (!string.IsNullOrEmpty(fundQuery.MainIndustry))
+                {
+                    redisResult = redisResult.Where(x => GetIndustryPosition(x.IndustryJson,fundQuery.MainIndustry)>15).ToList();
+                }
+                if (fundQuery.isnew)
+                {
+                    redisResult = redisResult.Where(x => DateHelper.getFormatDateTime(DateTime.Now) == DateHelper.getFormatDateTime(x.FundUpdateTime)).ToList();
+                }
+                if (!string.IsNullOrEmpty(fundQuery.FundName))
+                {
+                    redisResult = redisResult.Where(x => x.FundName.Contains(fundQuery.FundName)).ToList();
+                }
+                if (fundQuery.MinStockRate != null)
+                {
+                    redisResult = redisResult.Where(x => x.StockRate >= fundQuery.MinStockRate).ToList();
+                }
+                if (fundQuery.MaxStockRate != null)
+                {
+                    redisResult = redisResult.Where(x => x.StockRate <= fundQuery.MaxStockRate).ToList();
+                }
+                if (fundQuery.MinOrgHoldRate != null)
+                {
+                    redisResult = redisResult.Where(x => x.OrgHoldRate >= fundQuery.MinOrgHoldRate).ToList();
+                }
+                if (fundQuery.MaxOrgHoldRate != null)
+                {
+                    redisResult = redisResult.Where(x => x.OrgHoldRate <= fundQuery.MaxOrgHoldRate).ToList();
+                }
+                if (fundQuery.MinRank != null)
+                {
+                    redisResult = redisResult.Where(x => x.Rank_Id >= fundQuery.MinRank).ToList();
+                }
+                if (fundQuery.MinRank != null)
+                {
+                    redisResult = redisResult.Where(x => x.Rank_Id <= fundQuery.MaxRank).ToList();
+                }
+                if (fundQuery.bondstock == 1)
+                {
+                    //redisResult = redisResult.Where(x => x.StockRate <= 30 && x.FundName.Contains("债")).ToList();
+                    redisResult = redisResult.Where(x => x.FundType == "bond").ToList();
+                }
+                else if (fundQuery.bondstock == 2)
+                {
+                    redisResult = redisResult.Where(x => x.FundType == "stock" || x.FundType == "index" || x.FundType == "qdii").ToList();
+                    //redisResult = redisResult.Where(x => (x.StockRate > 30 || x.FundName.Contains("指数") || x.FundName.Contains("ETF")) && !x.FundName.Contains("债")).ToList();
+                }
+                if (fundQuery.MinTotalScale != null)
+                {
+                    redisResult = redisResult.Where(x => x.TotalScale >= fundQuery.MinTotalScale).ToList();
+                }
+                if (fundQuery.MaxTotalScale != null)
+                {
+                    redisResult = redisResult.Where(x => x.TotalScale <= fundQuery.MaxTotalScale).ToList();
+                }
+                if (fundQuery.MinAvgPE != null)
+                {
+                    redisResult = redisResult.Where(x => x.AvgPE > fundQuery.MinAvgPE).ToList();
+                }
+                if (fundQuery.MaxAvgPE != null)
+                {
+                    redisResult = redisResult.Where(x => x.AvgPE <= fundQuery.MaxAvgPE).ToList();
+                }
+                if (fundQuery.MinAvgPB != null)
+                {
+                    redisResult = redisResult.Where(x => x.AvgPB >= fundQuery.MinAvgPB).ToList();
+                }
+                if (fundQuery.MaxTop10Rate != null)
+                {
+                    redisResult = redisResult.Where(x => x.Top10Rate <= fundQuery.MaxTop10Rate).ToList();
+                }
+                if (fundQuery.MinTop10Rate != null)
+                {
+                    redisResult = redisResult.Where(x => x.Top10Rate >= fundQuery.MinTop10Rate).ToList();
+                }
+                readConn.Close();
+                return redisResult;
+            }
+            //不能从redis中获得数据，直接返回空
+            else if (!fundQuery.resetRedis)
+            {
+                return null;
+            }
+
+            RedisConn writeConn = new RedisConn(false);
+
+            //string sql = "select *,(IFNULL(BuyRate, 0)+IFNULL(ManagerFee, 0)+IFNULL(CustodyFee, 0)+IFNULL(SaleFee, 0)) as TotalFee from FundInfos fi left join MyScore ms on fi.FundNo=ms.FundNo left join ManagerInfos mi on fi.FundManagerNo=mi.FundManagerNo ";
+            string sql = "select fi.FundNo,FundName,BuyRate,TotalScale,R1day,R1week,R1month,R3month,R6month,fi.R1year,fi.R2year,fi.R3year,fi.R5year,DutyDate,OrgHoldRate,NetValue,StockRate,FundUpdateTime,fi.FundScore,fi.ManagerScore,Strategy,FundType,A2015,A2016,A2017,A2018,A2019,A2020,A2021,A2022,ms.BestReturn_Id,Score,Score3y,Rank_Id,fi.FundManagerNo,StockNos,StockPositions,StockNames,Maxretra,fi.Maxretra5,fi.Sharp,fi.Stddev,FundType,Turnovers,MorningStar,fi.Sharp2,fi.Sharp3,fi.Stddev2,fi.Stddev3,OrgHold,AvgScale,fi.Volatility,FundManagerName,(IFNULL(BuyRate, 0)+IFNULL(ManagerFee, 0)+IFNULL(CustodyFee, 0)+IFNULL(SaleFee, 0)) as TotalFee from FundInfos fi left join MyScore ms on fi.FundNo=ms.FundNo left join ManagerInfos mi on fi.FundManagerNo=mi.FundManagerNo ";
+            sql = sql + SetMyFundString(fundQuery)+ SetFundString(fundQuery)+" order by R1day desc";
             float outSy = 0;
             int outMf = 0;
             MySqlParameter[] pars = null;
@@ -30,11 +198,39 @@ namespace Solo.BLL
                 DataTable da = MySqlHelper.ExecuteTable(sql, pars);
                 if (da.Rows.Count > 0)
                 {
+                    var stocks = new List<StockInfo>();
+                    double hs300_r1year = 0;
+                    using (MyContext context = new MyContext())
+                    {
+                        stocks = context.StockInfos.ToList();
+                        hs300_r1year = Convert.ToDouble(context.FundInfos.Where(x => x.FundNo == "333333").SingleOrDefault().R1year);
+                    }
+
                     for (int i = 0; i < da.Rows.Count; i++)
                     {
                         FundView fv = new FundView();
                         fv.FundNo = da.Rows[i]["FundNo"].ToString();
                         fv.FundName = da.Rows[i]["FundName"].ToString();
+                        fv.StockNos = da.Rows[i]["StockNos"].ToString();
+                        fv.StockNames = da.Rows[i]["StockNames"].ToString();
+                        fv.StockPositions = da.Rows[i]["StockPositions"].ToString();
+                        fv.FundManagerName = da.Rows[i]["FundManagerName"].ToString();
+                        var pArr = fv.StockPositions.Split(',');
+                        fv.Top10Rate = 0;
+                        foreach (var item in pArr)
+                        {
+                            double temp = 0;
+                            if (double.TryParse(item, out temp))
+                            {
+                                fv.Top10Rate = fv.Top10Rate + temp;
+                            };                           
+                        }
+                        fv.Top10Rate = Math.Round(fv.Top10Rate, 2);
+
+                        fv.FundManagerNo = da.Rows[i]["FundManagerNo"].ToString();
+                        fv.Strategy = da.Rows[i]["Strategy"].ToString();
+                        fv.FundType = da.Rows[i]["FundType"].ToString();
+                        fv.Turnovers = da.Rows[i]["Turnovers"].ToString();
                         if (float.TryParse(da.Rows[i]["TotalFee"].ToString(), out outSy))
                         {
                             float temp = outSy;
@@ -83,47 +279,59 @@ namespace Solo.BLL
                         }
                         if (float.TryParse(da.Rows[i]["R2year"].ToString(), out outSy))
                         {
-                            fv.R2year = (float)da.Rows[i]["R2year"];
+                            fv.R2year = Math.Round(Convert.ToDouble(da.Rows[i]["R2year"]), 2);
                         }
                         if (float.TryParse(da.Rows[i]["R3year"].ToString(), out outSy))
                         {
-                            fv.R3year = (float)da.Rows[i]["R3year"];
+                            fv.R3year = Math.Round(Convert.ToDouble(da.Rows[i]["R3year"]), 2);
                         }
                         if (float.TryParse(da.Rows[i]["R5year"].ToString(), out outSy))
                         {
-                            fv.R5year = (float)da.Rows[i]["R5year"];
+                            fv.R5year = Math.Round(Convert.ToDouble(da.Rows[i]["R5year"]), 2);
                         }
-                        if (float.TryParse(da.Rows[i]["Over7dFee"].ToString(), out outSy))
-                        {
-                            fv.Over7dFee = (float)da.Rows[i]["Over7dFee"];
-                        }
-                        if (float.TryParse(da.Rows[i]["Over30dFee"].ToString(), out outSy))
-                        {
-                            fv.Over30dFee = (float)da.Rows[i]["Over30dFee"];
-                        }
-                        if (float.TryParse(da.Rows[i]["Over1yFee"].ToString(), out outSy))
-                        {
-                            fv.Over1yFee = (float)da.Rows[i]["Over1yFee"];
-                        }
-                        if (float.TryParse(da.Rows[i]["Over2yFee"].ToString(), out outSy))
-                        {
-                            fv.Over2yFee = (float)da.Rows[i]["Over2yFee"];
-                        }
-                        if (int.TryParse(da.Rows[i]["status"].ToString(), out outMf))
-                        {
-                            fv.status = (int)da.Rows[i]["status"];
-                        }
-                        if (int.TryParse(da.Rows[i]["Investment"].ToString(), out outMf))
-                        {
-                            fv.Investment = (int)da.Rows[i]["Investment"];
-                        }
+                        //if (float.TryParse(da.Rows[i]["Over7dFee"].ToString(), out outSy))
+                        //{
+                        //    fv.Over7dFee = (float)da.Rows[i]["Over7dFee"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["Over30dFee"].ToString(), out outSy))
+                        //{
+                        //    fv.Over30dFee = (float)da.Rows[i]["Over30dFee"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["Over1yFee"].ToString(), out outSy))
+                        //{
+                        //    fv.Over1yFee = (float)da.Rows[i]["Over1yFee"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["Over2yFee"].ToString(), out outSy))
+                        //{
+                        //    fv.Over2yFee = (float)da.Rows[i]["Over2yFee"];
+                        //}
                         if (int.TryParse(da.Rows[i]["Rank_Id"].ToString(), out outMf))
                         {
                             fv.Rank_Id = (int)da.Rows[i]["Rank_Id"];
                         }
+                        else
+                        {
+                            fv.Rank_Id = 9999;
+                        }
+                        if (int.TryParse(da.Rows[i]["MorningStar"].ToString(), out outMf))
+                        {
+                            fv.MorningStar = (int)da.Rows[i]["MorningStar"];
+                        }
+                        if (int.TryParse(da.Rows[i]["BestReturn_Id"].ToString(), out outMf))
+                        {
+                            fv.BestReturn_Id = (int)da.Rows[i]["BestReturn_Id"];
+                        }
                         if (float.TryParse(da.Rows[i]["StockRate"].ToString(), out outSy))
                         {
                             fv.StockRate = (float)da.Rows[i]["StockRate"];
+                        }
+                        if (float.TryParse(da.Rows[i]["Score"].ToString(), out outSy))
+                        {
+                            fv.Score = Math.Round((float)da.Rows[i]["Score"],2);
+                        }
+                        if (float.TryParse(da.Rows[i]["Score3y"].ToString(), out outSy))
+                        {
+                            fv.Score3y = Math.Round((float)da.Rows[i]["Score3y"], 2);
                         }
                         if (float.TryParse(da.Rows[i]["FundScore"].ToString(), out outSy))
                         {
@@ -133,21 +341,372 @@ namespace Solo.BLL
                         {
                             fv.ManagerScore = (float)da.Rows[i]["ManagerScore"];
                         }
-                        if (float.TryParse(da.Rows[i]["ReturnRate"].ToString(), out outSy))
+                        if (fundQuery.UserId>0)
                         {
-                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["ReturnRate"]) * 100, 2);
-                            fv.ReturnRate = viewrr;
+                            if (int.TryParse(da.Rows[i]["Investment"].ToString(), out outMf))
+                            {
+                                fv.Investment = (int)da.Rows[i]["Investment"];
+                            }
+                            if (float.TryParse(da.Rows[i]["ReturnRate"].ToString(), out outSy))
+                            {
+                                double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["ReturnRate"]) * 100, 2);
+                                fv.ReturnRate = viewrr;
+                            }
+                        }
+                        if (float.TryParse(da.Rows[i]["NetValue"].ToString(), out outSy))
+                        {
+                            fv.NetValue = (float)da.Rows[i]["NetValue"];
+                        }
+                        if (float.TryParse(da.Rows[i]["Volatility"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Volatility"]), 2);
+                            fv.Volatility = viewrr;
+                        }
+                        if (float.TryParse(da.Rows[i]["Sharp"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Sharp"]), 2);
+                            fv.Sharp = viewrr;
+                        }
+                        if (float.TryParse(da.Rows[i]["Sharp2"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Sharp2"]), 2);
+                            fv.Sharp2 = viewrr;
+                        }
+                        if (float.TryParse(da.Rows[i]["Sharp3"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Sharp3"]), 2);
+                            fv.Sharp3 = viewrr;
+                        }
+                        if (float.TryParse(da.Rows[i]["Maxretra"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Maxretra"]), 2);
+                            fv.Maxretra = viewrr;
+                        }
+                        if (float.TryParse(da.Rows[i]["Maxretra5"].ToString(), out outSy))
+                        {
+                            fv.Maxretra5 = Math.Round(Convert.ToDouble(da.Rows[i]["Maxretra5"]), 2);
+                        }
+                        if (float.TryParse(da.Rows[i]["Stddev"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Stddev"]), 2);
+                            fv.Stddev = viewrr;
+                        }
+                        if (float.TryParse(da.Rows[i]["Stddev2"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Stddev2"]), 2);
+                            fv.Stddev2 = viewrr;
+                        }
+                        if (float.TryParse(da.Rows[i]["Stddev3"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["Stddev3"]), 2);
+                            fv.Stddev3 = viewrr;
+                        }
+                        //if (float.TryParse(da.Rows[i]["R2015"].ToString(), out outSy))
+                        //{
+                        //    fv.R2015 = (float)da.Rows[i]["R2015"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["R2016"].ToString(), out outSy))
+                        //{
+                        //    fv.R2016 = (float)da.Rows[i]["R2016"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["R2017"].ToString(), out outSy))
+                        //{
+                        //    fv.R2017 = (float)da.Rows[i]["R2017"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["R2018"].ToString(), out outSy))
+                        //{
+                        //    fv.R2018 = (float)da.Rows[i]["R2018"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["R2019"].ToString(), out outSy))
+                        //{
+                        //    fv.R2019 = (float)da.Rows[i]["R2019"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["R2020"].ToString(), out outSy))
+                        //{
+                        //    fv.R2020 = (float)da.Rows[i]["R2020"];
+                        //}
+                        //if (float.TryParse(da.Rows[i]["R2021"].ToString(), out outSy))
+                        //{
+                        //    fv.R2021 = (float)da.Rows[i]["R2021"];
+                        //}
+                        if (float.TryParse(da.Rows[i]["A2015"].ToString(), out outSy))
+                        {
+                            fv.A2015 = (float)da.Rows[i]["A2015"];
+                        }
+                        if (float.TryParse(da.Rows[i]["A2016"].ToString(), out outSy))
+                        {
+                            fv.A2016 = (float)da.Rows[i]["A2016"];
+                        }
+                        if (float.TryParse(da.Rows[i]["A2017"].ToString(), out outSy))
+                        {
+                            fv.A2017 = (float)da.Rows[i]["A2017"];
+                        }
+                        if (float.TryParse(da.Rows[i]["A2018"].ToString(), out outSy))
+                        {
+                            fv.A2018 = (float)da.Rows[i]["A2018"];
+                        }
+                        if (float.TryParse(da.Rows[i]["A2019"].ToString(), out outSy))
+                        {
+                            fv.A2019 = (float)da.Rows[i]["A2019"];
+                        }
+                        if (float.TryParse(da.Rows[i]["A2020"].ToString(), out outSy))
+                        {
+                            fv.A2020 = (float)da.Rows[i]["A2020"];
+                        }
+                        if (float.TryParse(da.Rows[i]["A2021"].ToString(), out outSy))
+                        {
+                            fv.A2021 = (float)da.Rows[i]["A2021"];
+                        }
+                        if (float.TryParse(da.Rows[i]["A2022"].ToString(), out outSy))
+                        {
+                            fv.A2022 = (float)da.Rows[i]["A2022"];
                         }
                         fv.DutyDate = Convert.ToDateTime(da.Rows[i]["DutyDate"]);
                         fv.FundUpdateTime = Convert.ToDateTime(da.Rows[i]["FundUpdateTime"]);
+                        //int userId = 0;
+                        //int.TryParse(da.Rows[i]["UserId"].ToString(),out userId);
+                        //fv.UserId = userId;
+
+
+                        var stocknos = fv.StockNos.Split(',');
+                        var positions = fv.StockPositions.Split(',');
+                        double AvgPE = 0;
+                        double AvgPB = 0;
+                        string StockR1days = "";
+                        string StockIndustrys = "";
+                        string PEs = "";
+                        string Belongs = "";
+                        Dictionary<string, double> industry_dic = new Dictionary<string, double>();
+
+                        if (!fv.FundName.Contains("债"))
+                        {                          
+                            for (int j = 0; j < stocknos.Length; j++)
+                            {
+                                var stock = stocks.Where(x => x.StockNo == stocknos[j]).SingleOrDefault();
+                                if (stock != null &&  stock.P_B_Ratio > 0 && stocknos.Count() == positions.Count())
+                                {
+                                    double position = 0;
+                                    double.TryParse(positions[j], out position);
+                                    if (!industry_dic.ContainsKey(stock.IndustryName))
+                                    {                                       
+                                        industry_dic.Add(stock.IndustryName, position);
+                                    }
+                                    else
+                                    {
+                                        industry_dic[stock.IndustryName] = Math.Round(industry_dic[stock.IndustryName] + Convert.ToDouble(positions[j]), 2);
+                                    }
+
+                                    if (fv.Top10Rate>0)
+                                    {
+                                        if (stock.P_E_Ratio > 0)
+                                        {
+                                            AvgPE = AvgPE + stock.P_E_Ratio * position / fv.Top10Rate;
+                                        }
+                                        else
+                                        {
+                                            AvgPE = AvgPE + 200 * position / fv.Top10Rate;
+                                        }
+
+                                        AvgPB = AvgPB + stock.P_B_Ratio * position / fv.Top10Rate;
+                                    }
+                                                                                                    
+                                }
+                                if (stock != null)
+                                {
+                                    if (StockR1days != "")
+                                    {
+                                        StockR1days = StockR1days + ",";
+                                        StockIndustrys = StockIndustrys + ",";
+                                        PEs = PEs + ",";
+                                        Belongs = Belongs + ",";
+                                    }
+                                    StockR1days = StockR1days + stock.R1day.ToString();
+                                    StockIndustrys = StockIndustrys + stock.IndustryName.ToString();
+                                    PEs = PEs + stock.P_E_Ratio.ToString();
+                                    Belongs = Belongs + GetBelong(stock);
+                                }
+                            }
+                            fv.StockR1days = StockR1days;
+                            fv.StockIndustrys = StockIndustrys;
+                            fv.PEs = PEs;
+                            fv.Belongs = Belongs;
+                            industry_dic = industry_dic.OrderByDescending(o => o.Value).ToDictionary(p => p.Key, o => o.Value);
+                            fv.IndustryJson = JsonConvert.SerializeObject(industry_dic);
+                            AvgPE = Math.Round(AvgPE, 1);
+                            AvgPB = Math.Round(AvgPB, 1);
+                        }
+
+                        fv.AvgPB = AvgPB;
+                        fv.AvgPE = AvgPE;
+
+
+                        fv.alpha = Math.Round(fv.R1year - 4 - hs300_r1year, 2);
+                        
+
+
+
+                        if (fundQuery.HasAnalysis != null)
+                        {
+                            if (Convert.ToBoolean(fundQuery.HasAnalysis))
+                            {
+                                double netValue = 0;
+                                //double totalred = 0;
+                                var netValueStr = da.Rows[i]["NetValue"].ToString();
+                                //var totalUnitMoneyStr = da.Rows[i]["TotalUnitMoney"].ToString();
+                                //if (double.TryParse(totalUnitMoneyStr, out totalred))
+                                //{
+
+                                //}
+                                if (double.TryParse(netValueStr, out netValue))
+                                {
+                                    //fv.ReturnRate = Math.Round(((netValue / fv.Cost) - 1) * 100, 2);
+                                }
+
+
+                                DateTime updateTime;
+
+                                if (DateTime.TryParse(da.Rows[i]["FundUpdateTime"].ToString(), out updateTime))
+                                {
+
+                                }
+
+                                //Stopwatch watch = new Stopwatch();
+                                //watch.Start();
+                                var result = readConn.GetRedisData<LineReturn>(fv.FundNo);
+                                if (result == null || updateTime > result.updatetime)
+                                {
+                                    result = LinearRegression.GetTrendEquation(fv.FundNo);
+                                    if (result != null)
+                                    {
+                                        result.updatetime = updateTime;
+                                        
+                                        writeConn.SetRedisData(fv.FundNo, result);
+                                    }
+                                }
+
+                                if (result != null)
+                                {
+
+                                    fv.D_Top = Math.Round(100 * (result.topValue - netValue) / result.topValue, 2);
+                                    if (fv.D_Top < 0)
+                                    {
+                                        fv.D_Top = 0;
+                                    }
+                                    //av.D_Exp1 =Math.Round((netValue-(result.begins[3]) * result.points[0].X - result.points[0].Y) * 10000, 2);
+                                    fv.D_Exp1 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[0].X - result.points[0].Y) / netValue, 2);
+                                    fv.D_Exp2 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[1].X - result.points[1].Y) / netValue, 2);
+                                    fv.D_Exp3 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[2].X - result.points[2].Y) / netValue, 2);
+                                    fv.D_ExpM2 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[4].X - result.points[4].Y) / netValue, 2);
+                                    fv.D_ExpM1 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[5].X - result.points[5].Y) / netValue, 2);
+                                    fv.D_ExpD10 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[6].X - result.points[6].Y) / netValue, 2);
+                                    fv.D_ExpD5 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[7].X - result.points[7].Y) / netValue, 2);
+
+                                    double sumNet = 0;
+                                    List<double> list5 = new List<double>();
+                                    List<double> list10 = new List<double>();
+
+                                    if (result.dataSet.Rows.Count > 60)
+                                    {
+                                        for (int k = 1; k <= 60; k++)
+                                        {
+                                            if (k <= 10)
+                                            {
+                                                if (k <= 5)
+                                                {
+                                                    list5.Add((double)result.dataSet.Rows[result.dataSet.Rows.Count - k][1]);
+                                                }
+                                                list10.Add((double)result.dataSet.Rows[result.dataSet.Rows.Count - k][1]);
+                                            }
+                                            sumNet = sumNet + (double)result.dataSet.Rows[result.dataSet.Rows.Count - k][1];
+                                            //Console.WriteLine(result.dataSet.Rows[result.dataSet.Rows.Count - k][0]);
+                                        }
+
+                                        fv.D_A60 = Math.Round(100 * (netValue - sumNet / 60) / netValue, 2);
+                                        fv.D_Max10D = Math.Round(100 * (netValue - list10.Max()) / netValue, 2);
+                                        fv.D_Max5D = Math.Round(100 * (netValue - list5.Max()) / netValue, 2);
+                                    }
+
+
+
+
+
+                                    //double normalized = ((result.dataSet.Rows.Count - 1225) * result.points[3].X + result.points[3].Y);
+                                    double normalized = 1;
+                                    if (result.dataSet.Rows.Count >= 1225)
+                                    {
+                                        normalized = ((result.dataSet.Rows.Count - 1225) * result.points[3].X + result.points[3].Y);
+                                    }
+                                    else if (result.dataSet.Rows.Count < 1225 && result.dataSet.Rows.Count >= 735)
+                                    {
+                                        normalized = ((result.dataSet.Rows.Count - 735) * result.points[2].X + result.points[2].Y);
+                                    }
+                                    else if (result.dataSet.Rows.Count < 735 && result.dataSet.Rows.Count >= 490)
+                                    {
+                                        normalized = ((result.dataSet.Rows.Count - 490) * result.points[1].X + result.points[1].Y);
+                                    }
+                                    else if (result.dataSet.Rows.Count < 490 && result.dataSet.Rows.Count >= 245)
+                                    {
+                                        normalized = ((result.dataSet.Rows.Count - 245) * result.points[0].X + result.points[0].Y);
+                                    }
+                                    else if (result.dataSet.Rows.Count < 245)
+                                    {
+                                        normalized = result.points[0].Y;
+                                    }
+
+                                    if (result.dataSet.Rows.Count - 245 >= 0)
+                                    {
+                                        fv.Linear1 = Math.Round(result.points[0].X * 10000 / normalized, 2);
+                                    }
+                                    if (result.dataSet.Rows.Count - 490 >= 0)
+                                    {
+                                        fv.Linear2 = Math.Round(result.points[1].X * 10000 / normalized, 2);
+                                    }
+                                    if (result.dataSet.Rows.Count - 735 >= 0)
+                                    {
+                                        fv.Linear3 = Math.Round(result.points[2].X * 10000 / normalized, 2);
+                                    }
+                                    if (result.dataSet.Rows.Count - 1225 >= 0)
+                                    {
+                                        fv.Linear5 = Math.Round(result.points[3].X * 10000 / normalized, 2);
+                                    }
+                                    if (result.dataSet.Rows.Count - 30 >= 0)
+                                    {
+                                        fv.LinearM1 = Math.Round(result.points[5].X * 10000 / normalized, 2);
+                                    }
+                                    if (result.dataSet.Rows.Count - 60 >= 0)
+                                    {
+                                        fv.LinearM2 = Math.Round(result.points[4].X * 10000 / normalized, 2);
+                                    }
+
+                                }
+                                else
+                                {
+                                    fv.D_Top = 0;
+                                    fv.D_Exp1 = 0;
+                                    fv.D_Exp2 = 0;
+                                    fv.D_Exp3 = 0;
+                                }
+                            }
+
+                        }
 
                         list.Add(fv);
                     }
 
                 }
+
+                writeConn.SetRedisData("FundViews", list);
+                readConn.Close();
+                writeConn.Close();
+
+
+                //if (list.Count > 710)
+                //{
+                //    redisHelper.SetRedisData("FundViews", list);
+                //}
                 return list;
             }
-            catch (Exception)
+            catch (Exception ex)
             {
 
                 throw;
@@ -158,39 +717,54 @@ namespace Solo.BLL
         public string SetFundString(FundQuery fundQuery)
         {
             string queryStr = fundQuery== null?"":"where ";
-            MyFundService myFundService = new MyFundService();
-            switch (fundQuery.own)
-            {
-                case OWN.Empty:
-                    queryStr += SetFundMainQueryStr(fundQuery);
-                    break;
-                case OWN.OnlyHolds:                   
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(1),true);
-                    break;
-                case OWN.OnlyWaits:
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(2),true);
-                    break;
-                case OWN.OnlyHoldWaits:
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(3),true);
-                    break;
-                case OWN.Holds:
-                    queryStr += SetFundMainQueryStr(fundQuery);
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(1),false);
-                    break;
-                case OWN.Waits:
-                    queryStr += SetFundMainQueryStr(fundQuery);
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(2), false);
-                    break;
-                case OWN.HoldWaits:
-                    queryStr += SetFundMainQueryStr(fundQuery);
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(3), false);
-                    break;
-            }
+            //MyFundService myFundService = new MyFundService();
+            queryStr += SetFundMainQueryStr(fundQuery);
+            #region oldmethod
+            //switch (fundQuery.own)
+            //{
+            //    case OWN.Empty:
+            //        queryStr += SetFundMainQueryStr(fundQuery);
+            //        break;
+            //    case OWN.OnlyHolds:                   
+            //        queryStr += SetSelsStr(myFundService.GetMyFundNos(1),true);
+            //        break;
+            //    case OWN.OnlyWaits:
+            //        queryStr += SetSelsStr(myFundService.GetMyFundNos(2),true);
+            //        break;
+            //    case OWN.OnlyHoldWaits:
+            //        queryStr += SetSelsStr(myFundService.GetMyFundNos(3),true);
+            //        break;
+            //    case OWN.Holds:
+            //        queryStr += SetFundMainQueryStr(fundQuery);
+            //        queryStr += SetSelsStr(myFundService.GetMyFundNos(1),false);
+            //        queryStr += " mf.UserId="+ fundQuery.UserId+" and";
+            //        break;
+            //    case OWN.Waits:
+            //        queryStr += SetFundMainQueryStr(fundQuery);
+            //        queryStr += SetSelsStr(myFundService.GetMyFundNos(2), false);
+            //        queryStr += " mf.UserId=" + fundQuery.UserId + " and";
+            //        break;
+            //    case OWN.HoldWaits:
+            //        queryStr += SetFundMainQueryStr(fundQuery);
+            //        queryStr += SetSelsStr(myFundService.GetMyFundNos(3), false);
+            //        queryStr += " mf.UserId=" + fundQuery.UserId + " and";
+            //        break;
+            //}
+            #endregion
             queryStr += " 1=1 ";
             return queryStr;
 
         }
-        public string SetSelsStr(string sels,bool isOnly)
+
+        private string SetMyFundString(FundQuery fundQuery)
+        {
+            if (fundQuery.UserId>0)
+            {
+                return $"left join (select * from MyFunds where UserId={fundQuery.UserId}) mf on fi.FundNo=mf.FundNo ";
+            }
+            return "";
+        }
+        private string SetSelsStr(string sels,bool isOnly)
         {
             string ownStr = isOnly?"":"(";
             string[] strHolds = sels.Split(',');
@@ -210,11 +784,10 @@ namespace Solo.BLL
                     ownStr += " and";
                 }
             }
-
             return ownStr;
         }
 
-        public string SetFundMainQueryStr(FundQuery fundQuery)
+        private string SetFundMainQueryStr(FundQuery fundQuery)
         {
             string queryStr = "";
             #region QueryCode
@@ -403,449 +976,85 @@ namespace Solo.BLL
                 string formatDate = DateTime.Now.ToString("yyyy-MM-dd");
                 queryStr += $"FundUpdateTime>='{formatDate}' and ";
             }
+            if (fundQuery.UserId>0)
+            {
+                if (fundQuery.Status == 1 || fundQuery.Status == 2)
+                {
+                    queryStr += $"mf.Status={fundQuery.Status} and ";
+                }
+                else if(fundQuery.Status == 3)
+                {
+                    queryStr += $"mf.Status>0 and ";
+                }
+            }
             if (fundQuery.bondstock == 1)
             {
-                queryStr += "StockRate<50 and FundName not like '%ETF%' and FundName not like '%指数%' and ";
+                queryStr += "FundType='bond' and ";
             }
             else if (fundQuery.bondstock == 2)
             {
-                queryStr += "(StockRate>=50 or (FundName like '%ETF%' or FundName like '%指数%')) and ";
+                queryStr += "FundType!='bond' and FundType is not NULL and ";
             }
-            #endregion
-            return queryStr;
-        }
-
-        public string SetAnalysisMainQueryStr(AnalysisQuery analysisQuery)
-        {
-            string queryStr = "";
-            if (!string.IsNullOrEmpty(analysisQuery.FundNo))
+            if (!string.IsNullOrEmpty(fundQuery.Strategy))
             {
-                queryStr += "fi.FundNo like '%" + analysisQuery.FundNo + "%' and ";
-            }
-            if (!string.IsNullOrEmpty(analysisQuery.FundName))
-            {
-                queryStr += "FundName like '%" + analysisQuery.FundName + "%' and ";
-            }
-            if (analysisQuery.MaxStockRate != null)
-            {
-                queryStr += $"StockRate<={analysisQuery.MaxStockRate} and ";
-            }
-            if (analysisQuery.MinStockRate != null)
-            {
-                queryStr += $"StockRate>={analysisQuery.MinStockRate} and ";
-            }
-            if (analysisQuery.MaxTotalFee != null)
-            {
-                queryStr += "(IFNULL(BuyRate, 0)+IFNULL(ManagerFee, 0)+IFNULL(CustodyFee, 0)+IFNULL(SaleFee, 0))<=" + analysisQuery.MaxTotalFee + " and ";
-            }
-            if (analysisQuery.MinTotalFee != null)
-            {
-                queryStr += "(IFNULL(BuyRate, 0)+IFNULL(ManagerFee, 0)+IFNULL(CustodyFee, 0)+IFNULL(SaleFee, 0))>=" + analysisQuery.MinTotalFee + " and ";
-            }
-            if (analysisQuery.MaxR1week != null)
-            {
-                queryStr += $"R1week<={analysisQuery.MaxR1week} and ";
-            }
-            if (analysisQuery.MinR1week != null)
-            {
-                queryStr += $"R1week>={analysisQuery.MinR1week} and ";
-            }
-            if (analysisQuery.MaxR1m_1w != null)
-            {
-                queryStr += $"(R1month-R1week)<={analysisQuery.MaxR1m_1w} and ";
-            }
-            if (analysisQuery.MinR1m_1w != null)
-            {
-                queryStr += $"(R1month-R1week)>={analysisQuery.MinR1m_1w} and ";
-            }
-            if (analysisQuery.MaxR3_1m != null)
-            {
-                queryStr += $"(R3month-R1month)<={analysisQuery.MaxR3_1m} and ";
-            }
-            if (analysisQuery.MinR3_1m != null)
-            {
-                queryStr += $"(R3month-R1month)>={analysisQuery.MinR3_1m} and ";
-            }
-            if (analysisQuery.MaxR6_3m != null)
-            {
-                queryStr += $"(R6month-R3month)<={analysisQuery.MaxR6_3m} and ";
-            }
-            if (analysisQuery.MinR6_3m != null)
-            {
-                queryStr += $"(R6month-R3month)>={analysisQuery.MinR6_3m} and ";
-            }
-            if (analysisQuery.MaxR12_6m != null)
-            {
-                queryStr += $"(R1year-R6month)<={analysisQuery.MaxR12_6m} and ";
-            }
-            if (analysisQuery.MinR12_6m != null)
-            {
-                queryStr += $"(R1year-R6month)>={analysisQuery.MinR12_6m} and ";
-            }
-            if (analysisQuery.MaxR1year != null)
-            {
-                queryStr += $"R1year<={analysisQuery.MaxR1year} and ";
-            }
-            if (analysisQuery.MinR1year != null)
-            {
-                queryStr += $"R1year>={analysisQuery.MinR1year} and ";
-            }
-            if (analysisQuery.MaxR2_1y != null)
-            {
-                queryStr += $"(R2year-R1year)<={analysisQuery.MaxR2_1y} and ";
-            }
-            if (analysisQuery.MinR2_1y != null)
-            {
-                queryStr += $"(R2year-R1year)>={analysisQuery.MinR2_1y} and ";
-            }
-            if (analysisQuery.MaxR3_2y != null)
-            {
-                queryStr += $"(R3year-R2year)<={analysisQuery.MaxR3_2y} and ";
-            }
-            if (analysisQuery.MinR3_2y != null)
-            {
-                queryStr += $"(R3year-R2year)>={analysisQuery.MinR3_2y} and ";
-            }
-            if (analysisQuery.MaxR5_3y != null)
-            {
-                queryStr += $"(R5year-R3year)<={analysisQuery.MaxR5_3y} and ";
-            }
-            if (analysisQuery.MinR5_3y != null)
-            {
-                queryStr += $"(R5year-R3year)>={analysisQuery.MinR5_3y} and ";
-            }
-            if (analysisQuery.MaxRank_Id != null)
-            {
-                queryStr += $"Rank_Id<={analysisQuery.MaxRank_Id} and ";
-            }
-            if (analysisQuery.MinRank_Id != null)
-            {
-                queryStr += $"Rank_Id>={analysisQuery.MinRank_Id} and ";
-            }
-            if (analysisQuery.isnew)
-            {
-                string formatDate = DateTime.Now.ToString("yyyy-MM-dd");
-                queryStr += $"FundUpdateTime>='{formatDate}' and ";
-            }
-            if (analysisQuery.bondstock == 1)
-            {
-                queryStr += "StockRate<50 and FundName not like '%ETF%' and FundName not like '%指数%' and ";
-            }
-            else if (analysisQuery.bondstock == 2)
-            {
-                queryStr += "(StockRate>=50 or (FundName like '%ETF%' or FundName like '%指数%')) and ";
-            }
-            return queryStr;
-        }
-
-        public string SetAnalysisStr(AnalysisQuery analysisQuery)
-        {
-            string queryStr = analysisQuery == null ? "" : "where ";
-            MyFundService myFundService = new MyFundService();
-            switch (analysisQuery.own)
-            {
-                case OWN.Empty:
-                    queryStr += SetAnalysisMainQueryStr(analysisQuery);
-                    break;
-                case OWN.OnlyHolds:
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(1), true);
-                    break;
-                case OWN.OnlyWaits:
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(2), true);
-                    break;
-                case OWN.OnlyHoldWaits:
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(3), true);
-                    break;
-                case OWN.Holds:
-                    queryStr += SetAnalysisMainQueryStr(analysisQuery);
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(1), false);
-                    break;
-                case OWN.Waits:
-                    queryStr += SetAnalysisMainQueryStr(analysisQuery);
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(2), false);
-                    break;
-                case OWN.HoldWaits:
-                    queryStr += SetAnalysisMainQueryStr(analysisQuery);
-                    queryStr += SetSelsStr(myFundService.GetMyFundNos(3), false);
-                    break;
-            }
-            queryStr += " BuyRate>-1 ";
-
-            #region QueryCode
-
-            //if (fundQuery.MaxR1month != null)
-            //{
-            //    queryStr += $"R1month<={fundQuery.MaxR1month} and ";
-            //}
-            //if (fundQuery.MinR1month != null)
-            //{
-            //    queryStr += $"R1month>={fundQuery.MinR1month} and ";
-            //}
-
-            #endregion
-            return queryStr;
-
-        }
-
-        public List<AnalysisView> GetAnalysisByQuery(AnalysisQuery analysisQuery)
-        {
-            List<AnalysisView> avList = new List<AnalysisView>();
-            RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
-            string sql = "select fi.FundUpdateTime,fi.ReturnRate,mf.Investment,mf.status,fi.FundNo,FundName,NetValue,StockRate,R1day,R1week,R1month,fi.FundScore,fi.ManagerScore,ms.Rank_Id,ms.Bear_Id,ms.BestReturn_Id,ms.FundScore_Id,ms.ManagerScore_Id from FundInfos fi left join MyFunds mf on fi.FundNo = mf.FundNo left join MyScore ms on fi.FundNo=ms.FundNo ";
-            sql = sql + SetAnalysisStr(analysisQuery) + " order by R1week desc";
-            float outSy = 0;
-            int outMf = 0;
-            MySqlParameter[] pars = null;
-            DataTable da = MySqlHelper.ExecuteTable(sql, pars);
-            try
-            {
-                if (da.Rows.Count > 0)
+                string[] strategy = fundQuery.Strategy.Split(',');
+                foreach (var item in strategy)
                 {
-                    for (int i = 0; i < da.Rows.Count; i++)
+                    if (!string.IsNullOrEmpty(item))
                     {
-                        AnalysisView av = new AnalysisView();
-                        av.FundNo = da.Rows[i]["FundNo"].ToString();
-                        av.FundName = da.Rows[i]["FundName"].ToString();
-                        if (float.TryParse(da.Rows[i]["StockRate"].ToString(), out outSy))
-                        {
-                            float temp = (float)da.Rows[i]["StockRate"];
-                            av.StockRate = (float)Math.Round(temp, 2);
-                        }
-                        if (float.TryParse(da.Rows[i]["R1day"].ToString(), out outSy))
-                        {
-                            float temp = (float)da.Rows[i]["R1day"];
-                            av.R1day = (float)Math.Round(temp, 2);
-                        }
-                        if (float.TryParse(da.Rows[i]["R1week"].ToString(), out outSy))
-                        {
-                            float temp = (float)da.Rows[i]["R1week"];
-                            av.R1week = (float)Math.Round(temp, 2);
-                        }
-                        if (float.TryParse(da.Rows[i]["R1month"].ToString(), out outSy))
-                        {
-                            float temp = (float)da.Rows[i]["R1month"];
-                            av.R1month = (float)Math.Round(temp, 2);
-                        }
-                        if (int.TryParse(da.Rows[i]["Bear_Id"].ToString(), out outMf))
-                        {
-                            av.Bear_Id = (int)da.Rows[i]["Bear_Id"];
-                        }
-                        if (int.TryParse(da.Rows[i]["Rank_Id"].ToString(), out outMf))
-                        {
-                            av.Rank_Id = (int)da.Rows[i]["Rank_Id"];
-                        }
-                        if (int.TryParse(da.Rows[i]["FundScore_Id"].ToString(), out outMf))
-                        {
-                            av.FundScore_Id = (int)da.Rows[i]["FundScore_Id"];
-                        }
-                        if (int.TryParse(da.Rows[i]["ManagerScore_Id"].ToString(), out outMf))
-                        {
-                            av.ManagerScore_Id = (int)da.Rows[i]["ManagerScore_Id"];
-                        }
-                        if (int.TryParse(da.Rows[i]["BestReturn_Id"].ToString(), out outMf))
-                        {
-                            av.BestReturn_Id = (int)da.Rows[i]["BestReturn_Id"];
-
-                        }
-                        //if (float.TryParse(da.Rows[i]["R1m_1w"].ToString(), out outSy))
-                        //{
-                        //    float temp = outSy;
-                        //    av.R1m_1w = (float)Math.Round(temp, 2);
-                        //}
-                        //if (float.TryParse(da.Rows[i]["R3_1m"].ToString(), out outSy))
-                        //{
-                        //    float temp = outSy;
-                        //    av.R3_1m = (float)Math.Round(temp, 2);
-                        //}
-                        //if (float.TryParse(da.Rows[i]["R6_3m"].ToString(), out outSy))
-                        //{
-                        //    float temp = outSy;
-                        //    av.R6_3m = (float)Math.Round(temp, 2);
-                        //}
-                        //if (float.TryParse(da.Rows[i]["R12_6m"].ToString(), out outSy))
-                        //{
-                        //    float temp = outSy;
-                        //    av.R12_6m = (float)Math.Round(temp, 2);
-                        //}
-                        //if (float.TryParse(da.Rows[i]["R1year"].ToString(), out outSy))
-                        //{
-                        //    float temp = outSy;
-                        //    av.R1year = (float)Math.Round(temp, 2);
-                        //}
-                        //if (float.TryParse(da.Rows[i]["R2_1y"].ToString(), out outSy))
-                        //{
-                        //    double temp = outSy;
-                        //    av.R2_1y = (float)Math.Round(temp, 2);
-                        //}
-                        //if (float.TryParse(da.Rows[i]["R3_2y"].ToString(), out outSy))
-                        //{
-                        //    double temp = outSy;
-                        //    av.R3_2y = (float)Math.Round(temp, 2);
-                        //}
-                        //if (float.TryParse(da.Rows[i]["R5_3y"].ToString(), out outSy))
-                        //{
-                        //    double temp = outSy;
-                        //    av.R5_3y = (float)Math.Round(temp, 2);
-                        //}
-                        if (int.TryParse(da.Rows[i]["status"].ToString(), out outMf))
-                        {
-                            av.status = (int)da.Rows[i]["status"];
-                        }
-                        if (int.TryParse(da.Rows[i]["Investment"].ToString(), out outMf))
-                        {
-                            av.Investment = (int)da.Rows[i]["Investment"];
-                        }
-                        if (float.TryParse(da.Rows[i]["ReturnRate"].ToString(), out outSy))
-                        {
-                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["ReturnRate"]) * 100, 2);
-                            av.ReturnRate = viewrr;
-                        }
-                        if (float.TryParse(da.Rows[i]["FundScore"].ToString(), out outSy))
-                        {
-                            av.FundScore = (float)da.Rows[i]["FundScore"];
-                        }
-                        if (float.TryParse(da.Rows[i]["ManagerScore"].ToString(), out outSy))
-                        {
-                            av.ManagerScore = (float)da.Rows[i]["ManagerScore"];
-                        }
-
-                        double netValue = 0;
-                        //double inNetValue = 0;
-                        var netValueStr = da.Rows[i]["NetValue"].ToString();
-                        if (double.TryParse(netValueStr, out netValue))
-                        {
-                            //if (double.TryParse(da.Rows[i]["InNetValue"].ToString(), out inNetValue))
-                            //{
-                            //    if (netValue!=0 && inNetValue !=0)
-                            //    {
-                            //        av.HoldIncrease = Math.Round((netValue - inNetValue)/ netValue, 5);
-                            //    }
-                            //    else
-                            //    {
-                            //        av.HoldIncrease = null;
-                            //    }
-                            //}
-                            //else
-                            //{
-                            //    av.HoldIncrease = null;
-                            //}
-                        }
-
-
-
-                        DateTime updateTime;
-
-                        if (DateTime.TryParse(da.Rows[i]["FundUpdateTime"].ToString(), out updateTime))
-                        {
-
-                        }
-                        else
-                        {
-
-                        }
-                        
-                        //Stopwatch watch = new Stopwatch();
-                        //watch.Start();
-                        var result = redisHelper.GetRedisData<LineReturn>(av.FundNo);
-                        if (result == null || updateTime>result.updatetime)
-                        {
-                            result = LinearRegression.GetTrendEquation(av.FundNo);
-                            if (result!=null)
-                            {
-                                result.updatetime = updateTime;
-                                redisHelper.SetRedisData(av.FundNo, result);
-                            }                          
-                        }
-                                                                       
-                        //double time = watch.Elapsed.TotalSeconds;
-                        //Console.WriteLine(time);
-                        //watch.Stop();
-
-                        if (result != null)
-                        {
-                            av.D_Top = Math.Round(100*(result.topValue - netValue)/result.topValue,2);
-                            if (av.D_Top < 0)
-                            {
-                                av.D_Top = 0;
-                            }
-                            //av.D_Exp1 =Math.Round((netValue-(result.begins[3]) * result.points[0].X - result.points[0].Y) * 10000, 2);
-                            av.D_Exp1 = Math.Round(100*(netValue - (result.begins[4]-1) * result.points[0].X - result.points[0].Y)/netValue, 2);
-                            av.D_Exp2 = Math.Round(100*(netValue-(result.begins[4]-1) * result.points[1].X - result.points[1].Y)/netValue, 2);
-                            av.D_Exp3 = Math.Round(100*(netValue-(result.begins[4]-1) * result.points[2].X - result.points[2].Y)/netValue, 2);
-                            av.D_ExpM2 = Math.Round(100 * (netValue - (result.begins[4]-1) * result.points[4].X - result.points[4].Y) / netValue, 2);
-                            av.D_ExpM1 = Math.Round(100 * (netValue - (result.begins[4]-1) * result.points[5].X - result.points[5].Y) / netValue, 2);
-                            av.D_ExpD10 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[6].X - result.points[6].Y) / netValue, 2);
-                            av.D_ExpD5 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[7].X - result.points[7].Y) / netValue, 2);
-
-                            //double normalized = ((result.dataSet.Rows.Count - 1225) * result.points[3].X + result.points[3].Y);
-                            double normalized = 1;
-                            if (result.dataSet.Rows.Count >= 1225)
-                            {
-                                normalized = ((result.dataSet.Rows.Count - 1225) * result.points[3].X + result.points[3].Y);
-                            }
-                            else if (result.dataSet.Rows.Count < 1225 && result.dataSet.Rows.Count >= 735)
-                            {
-                                normalized = ((result.dataSet.Rows.Count - 735) * result.points[2].X + result.points[2].Y);
-                            }
-                            else if (result.dataSet.Rows.Count < 735 && result.dataSet.Rows.Count >= 490)
-                            {
-                                normalized = ((result.dataSet.Rows.Count - 490) * result.points[1].X + result.points[1].Y);
-                            }
-                            else if (result.dataSet.Rows.Count < 490 && result.dataSet.Rows.Count >= 245)
-                            {
-                                normalized = ((result.dataSet.Rows.Count - 245) * result.points[0].X + result.points[0].Y);
-                            }
-                            else if (result.dataSet.Rows.Count < 245)
-                            {
-                                normalized = result.points[0].Y;
-                            }
-
-                            if (result.dataSet.Rows.Count - 245 >=0)
-                            {
-                                av.Linear1 = Math.Round(result.points[0].X * 10000 / normalized, 2);
-                            }
-                            if (result.dataSet.Rows.Count - 490 >= 0)
-                            {
-                                av.Linear2 = Math.Round(result.points[1].X * 10000 / normalized, 2);
-                            }
-                            if (result.dataSet.Rows.Count - 735 >= 0)
-                            {
-                                av.Linear3 = Math.Round(result.points[2].X * 10000 / normalized, 2);
-                            }
-                            if (result.dataSet.Rows.Count - 1225 >= 0)
-                            {
-                                av.Linear5 = Math.Round(result.points[3].X * 10000 / normalized, 2);
-                            }
-                            
-                        }
-                        else
-                        {
-                            av.D_Top = 0;
-                            av.D_Exp1 =0;
-                            av.D_Exp2 =0;
-                            av.D_Exp3 =0;
-                        }
-                        avList.Add(av);
+                        queryStr += "Strategy like '%" + item + "%' and ";
                     }
                 }
-                return avList;
             }
-            catch (Exception ex)
-            {
-                //Console.WriteLine(analysisQuery.FundNo);
-                //return null;
-                throw ex;
-            }
-            
+            #endregion
+            return queryStr;
         }
+
 
         public List<StrategyView> GetStrategyByQuery(StrategyQuery strategyQuery)
         {
             List<StrategyView> stList = new List<StrategyView>();
-            RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
-            string sql = "select fi.FundNo,FundName,Strategy,Investment,ReturnRate,R1day,R1week,R1month,fi.FundScore,fi.ManagerScore,DutyDate,NetValue,TotalScale," +
-                         "mf.Estimate,vt.ValuationScore,FundUpdateTime,Rank_Id from FundInfos fi right join MyFunds mf on fi.FundNo = mf.FundNo left join MyScore ms on " +
-                         "fi.FundNo=ms.FundNo left join Valuations vt on mf.ValuationId=vt.Id";
+            //RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
+
+            RedisConn readConn = new RedisConn(true);
+
+            //var redisResult = redisHelper.GetRedisData<List<StrategyView>>("StrategyViews");
+            //if (redisResult != null && redisResult.Count > 0)
+            //{
+            //    if (!string.IsNullOrEmpty(strategyQuery.Strategy))
+            //    {
+            //        redisResult = redisResult.Where(x => x.Strategy.Contains(strategyQuery.Strategy)).ToList();
+            //    }
+            //    if (strategyQuery.isnew)
+            //    {
+            //        redisResult = redisResult.Where(x => DateHelper.getFormatDateTime(DateTime.Now) == DateHelper.getFormatDateTime(x.FundUpdateTime)).ToList();
+            //    }
+            //    if (!string.IsNullOrEmpty(strategyQuery.FundName))
+            //    {
+            //        redisResult = redisResult.Where(x => x.FundName.Contains(strategyQuery.FundName)).ToList();
+            //    }
+            //    if (strategyQuery.bondstock == 1)
+            //    {
+            //        redisResult = redisResult.Where(x => x.StockRate <= 30 && !x.FundName.Contains("ETF") && !x.FundName.Contains("指数")).ToList();
+            //    }
+            //    else if (strategyQuery.bondstock == 2)
+            //    {
+            //        redisResult = redisResult.Where(x => x.StockRate >= 30 || (x.FundName.Contains("ETF") || x.FundName.Contains("指数"))).ToList();
+            //    }
+            //    if (strategyQuery.status == 1 || strategyQuery.status == 2)
+            //    {
+            //        redisResult = redisResult.Where(x => x.status == strategyQuery.status).ToList();
+            //    }
+            //    else if (strategyQuery.status == 3)
+            //    {
+            //        redisResult = redisResult.Where(x => x.status > 0).ToList();
+            //    }
+            //    return redisResult;
+            //}
+
+            string sql = "select fi.FundNo,FundName,Strategy,FundType,StockRate,Investment,HoldShares,TotalBonus,Cost,ReturnRate,R1day,R1week,R1month,fi.FundScore,fi.ManagerScore,DutyDate,NetValue,TotalScale," +
+                         "Estimate,ValuationScore,Maxretra,fi.Maxretra5,FundUpdateTime,StockNos,StockNames,StockPositions,Rank_Id,mf.Status from FundInfos fi right join MyFunds mf on fi.FundNo = mf.FundNo left join MyScore ms on " +
+                         "fi.FundNo=ms.FundNo left join Valuations vt on ValuationId=vt.Id";
             sql = sql + SetStrategyStr(strategyQuery) + " order by R1day desc";
             MySqlParameter[] pars = null;
             DataTable da = MySqlHelper.ExecuteTable(sql, pars);
@@ -861,6 +1070,9 @@ namespace Solo.BLL
                         sv.FundNo = da.Rows[i]["FundNo"].ToString();
                         sv.FundName = da.Rows[i]["FundName"].ToString();
                         sv.Strategy = da.Rows[i]["Strategy"].ToString();
+                        sv.StockNos = da.Rows[i]["StockNos"].ToString();
+                        sv.StockNames = da.Rows[i]["StockNames"].ToString();
+                        sv.StockPositions = da.Rows[i]["StockPositions"].ToString();
                         if (float.TryParse(da.Rows[i]["R1day"].ToString(), out outSy))
                         {
                             float temp = (float)da.Rows[i]["R1day"];
@@ -887,11 +1099,19 @@ namespace Solo.BLL
                         {
                             sv.Rank_Id = (int)da.Rows[i]["Rank_Id"];
                         }
-                        if (float.TryParse(da.Rows[i]["ReturnRate"].ToString(), out outSy))
+                        else
                         {
-                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["ReturnRate"]) * 100, 2);
-                            sv.ReturnRate = viewrr;
+                            sv.Rank_Id = 9999;
                         }
+                        if (float.TryParse(da.Rows[i]["StockRate"].ToString(), out outSy))
+                        {
+                            sv.StockRate = (float)da.Rows[i]["StockRate"];
+                        }
+                        //if (float.TryParse(da.Rows[i]["ReturnRate"].ToString(), out outSy))
+                        //{
+                        //    double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["ReturnRate"]) * 100, 2);
+                        //    sv.ReturnRate = viewrr;
+                        //}
                         if (float.TryParse(da.Rows[i]["FundScore"].ToString(), out outSy))
                         {
                             sv.FundScore = (float)da.Rows[i]["FundScore"];
@@ -900,15 +1120,49 @@ namespace Solo.BLL
                         {
                             sv.ManagerScore = (float)da.Rows[i]["ManagerScore"];
                         }
+                        //if (float.TryParse(da.Rows[i]["Maxretra"].ToString(), out outSy))
+                        //{
+                        //    sv.Maxretra = (float)da.Rows[i]["Maxretra"];
+                        //}
+                        if (float.TryParse(da.Rows[i]["Maxretra"].ToString(), out outSy))
+                        {
+                            sv.Maxretra = Math.Round(Convert.ToDouble(da.Rows[i]["Maxretra"]), 2);
+                        }
+                        if (float.TryParse(da.Rows[i]["Maxretra5"].ToString(), out outSy))
+                        {
+                            sv.Maxretra5 = Math.Round(Convert.ToDouble(da.Rows[i]["Maxretra5"]), 2);
+                        }
                         if (float.TryParse(da.Rows[i]["Estimate"].ToString(), out outSy))
                         {
                             sv.Estimate = (double)da.Rows[i]["Estimate"];
+                        }
+                        if (float.TryParse(da.Rows[i]["Cost"].ToString(), out outSy))
+                        {
+                            sv.Cost = (double)da.Rows[i]["Cost"];
+                        }
+                        if (float.TryParse(da.Rows[i]["NetValue"].ToString(), out outSy))
+                        {
+                            double viewrr = Math.Round(Convert.ToDouble(da.Rows[i]["NetValue"]), 4);
+                            sv.UnitValue = viewrr;
+                            //sv.UnitValue = (double)da.Rows[i]["NetValue"];
+                        }
+                        if (float.TryParse(da.Rows[i]["TotalBonus"].ToString(), out outSy))
+                        {
+                            sv.TotalBonus = (double)da.Rows[i]["TotalBonus"];
+                        }
+                        if (float.TryParse(da.Rows[i]["HoldShares"].ToString(), out outSy))
+                        {
+                            sv.HoldShares = (double)da.Rows[i]["HoldShares"];
                         }
                         if (float.TryParse(da.Rows[i]["ValuationScore"].ToString(), out outSy))
                         {
                             sv.ValuationScore = (double)da.Rows[i]["ValuationScore"];
                         }
-
+                        if (int.TryParse(da.Rows[i]["Status"].ToString(), out outMf))
+                        {
+                            sv.status = (int)da.Rows[i]["Status"];
+                        }
+                        
                         try
                         {
                             sv.DutyDate = Convert.ToDateTime(da.Rows[i]["DutyDate"]);
@@ -918,16 +1172,56 @@ namespace Solo.BLL
 
                             Console.WriteLine(ex);
                         }
+                        sv.FundUpdateTime = Convert.ToDateTime(da.Rows[i]["FundUpdateTime"]);
+
+                        
+
+                        if (sv.Investment!=null)
+                        {
+                            //sv.CurrentHold = (int)(sv.Investment * (1 + sv.ReturnRate / 100));
+                            sv.CurrentHold = Convert.ToInt32(sv.HoldShares * sv.UnitValue);
+                        }
                         
 
                         double netValue = 0;
+                        //double totalred = 0;
                         var netValueStr = da.Rows[i]["NetValue"].ToString();
+                        //var totalUnitMoneyStr = da.Rows[i]["TotalUnitMoney"].ToString();
                         if (!double.TryParse(netValueStr, out netValue))
-                        { 
-                        
+                        {
+                            
+                        }
+
+                        double totalshares = 0;
+                        double totalbonus = 0;
+                        if (float.TryParse(da.Rows[i]["HoldShares"].ToString(), out outSy))
+                        {
+                            totalshares = Math.Round(Convert.ToDouble(da.Rows[i]["HoldShares"]), 4);
+                        }
+                        if (float.TryParse(da.Rows[i]["TotalBonus"].ToString(), out outSy))
+                        {
+                            totalbonus = Math.Round(Convert.ToDouble(da.Rows[i]["TotalBonus"]), 4);
                         }
 
 
+                        if (sv.Cost != 0 && totalshares != 0)
+                        {
+                            sv.ReturnRate = Math.Round((((totalshares * sv.UnitValue + totalbonus) / (sv.Cost * totalshares)) - 1) * 100, 2);
+                        }
+                        else
+                        {
+                            sv.ReturnRate = 0;
+                        }
+
+                        //if (!double.TryParse(totalUnitMoneyStr, out totalred))
+                        //{
+
+                        //}
+
+                        if (sv.FundUpdateTime < DateHelper.getFormatDateTime(DateTime.Now))
+                        {
+                            netValue = netValue * (1 + (sv.Estimate/100));
+                        }
 
                         DateTime updateTime;
 
@@ -937,15 +1231,17 @@ namespace Solo.BLL
                         }
 
 
-
-                        var result = redisHelper.GetRedisData<LineReturn>(sv.FundNo);
+                        var result = readConn.GetRedisData<LineReturn>(sv.FundNo);
                         if (result == null || updateTime > result.updatetime)
                         {
                             result = LinearRegression.GetTrendEquation(sv.FundNo);
                             if (result != null)
                             {
                                 result.updatetime = updateTime;
-                                redisHelper.SetRedisData(sv.FundNo, result);
+                                RedisConn writeConn = new RedisConn(false);
+
+                                writeConn.SetRedisData(sv.FundNo, result);
+                                writeConn.Close();
                             }
                         }
 
@@ -953,6 +1249,7 @@ namespace Solo.BLL
                         if (result != null)
                         {
                             sv.D_Top = Math.Round(100 * (result.topValue - netValue) / result.topValue, 2);
+                            //sv.D_Top = Math.Round(100 * (result.topValue - netValue) / (result.topValue - totalred), 2);
                             if (sv.D_Top < 0)
                             {
                                 sv.D_Top = 0;
@@ -965,9 +1262,67 @@ namespace Solo.BLL
                             sv.D_ExpM1 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[5].X - result.points[5].Y) / netValue, 2);
                             sv.D_ExpD10 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[6].X - result.points[6].Y) / netValue, 2);
                             sv.D_ExpD5 = Math.Round(100 * (netValue - (result.begins[4] - 1) * result.points[7].X - result.points[7].Y) / netValue, 2);
-                            //sv.Linear1 = Math.Round(result.points[0].X * 10000 * 250 / 365, 2);
-                            //sv.Linear2 = Math.Round(result.points[1].X * 10000 * 250 / 365, 2);
-                            //sv.Linear3 = Math.Round(result.points[2].X * 10000 * 250 / 365, 2);
+
+                            double sumNet = 0;
+
+                            List<double> list5 = new List<double>();
+                            List<double> list10 = new List<double>();
+
+                            if (result.dataSet.Rows.Count > 60)
+                            {
+                                for (int k = 1; k <= 60; k++)
+                                {
+                                    if (k <= 10)
+                                    {
+                                        if (k <= 5)
+                                        {
+                                            list5.Add((double)result.dataSet.Rows[result.dataSet.Rows.Count - k][1]);
+                                        }
+                                        list10.Add((double)result.dataSet.Rows[result.dataSet.Rows.Count - k][1]);
+                                    }
+                                    sumNet = sumNet + (double)result.dataSet.Rows[result.dataSet.Rows.Count - k][1];
+                                    //Console.WriteLine(result.dataSet.Rows[result.dataSet.Rows.Count - k][0]);
+                                }
+                                sv.D_A60 = Math.Round(100 * (netValue - (sumNet / 60)) / netValue, 2);
+
+                                sv.D_Max10D = Math.Round(100 * (netValue - list10.Max()) / netValue, 2);
+                                sv.D_Max5D = Math.Round(100 * (netValue - list5.Max()) / netValue, 2);
+                            }
+
+                            
+
+
+
+                            double normalized = 1;
+                            if (result.dataSet.Rows.Count >= 1225)
+                            {
+                                normalized = ((result.dataSet.Rows.Count - 1225) * result.points[3].X + result.points[3].Y);
+                            }
+                            else if (result.dataSet.Rows.Count < 1225 && result.dataSet.Rows.Count >= 735)
+                            {
+                                normalized = ((result.dataSet.Rows.Count - 735) * result.points[2].X + result.points[2].Y);
+                            }
+                            else if (result.dataSet.Rows.Count < 735 && result.dataSet.Rows.Count >= 490)
+                            {
+                                normalized = ((result.dataSet.Rows.Count - 490) * result.points[1].X + result.points[1].Y);
+                            }
+                            else if (result.dataSet.Rows.Count < 490 && result.dataSet.Rows.Count >= 245)
+                            {
+                                normalized = ((result.dataSet.Rows.Count - 245) * result.points[0].X + result.points[0].Y);
+                            }
+                            else if (result.dataSet.Rows.Count < 245)
+                            {
+                                normalized = result.points[0].Y;
+                            }
+
+                            if (result.dataSet.Rows.Count - 30 >= 0)
+                            {
+                                sv.LinearM1 = Math.Round(result.points[5].X * 10000 / normalized, 2);
+                            }
+                            if (result.dataSet.Rows.Count - 60 >= 0)
+                            {
+                                sv.LinearM2 = Math.Round(result.points[4].X * 10000 / normalized, 2);//error
+                            }
                         }
                         else
                         {
@@ -981,11 +1336,12 @@ namespace Solo.BLL
                     }
 
                 }
+                readConn.Close();
                 return stList;
             }
             catch (Exception ex)
             {
-
+                readConn.Close();
                 throw;
             }
         }
@@ -1050,246 +1406,141 @@ namespace Solo.BLL
             }
             if (strategyQuery.bondstock == 1)
             {
-                queryStr += "StockRate<50 and FundName not like '%ETF%' and FundName not like '%指数%' and ";
+                //queryStr += "StockRate<50 and FundName not like '%ETF%' and FundName not like '%指数%' and ";
+                queryStr += "FundType='bond' and ";
             }
             else if (strategyQuery.bondstock == 2)
             {
-                queryStr += "(StockRate>=50 or (FundName like '%ETF%' or FundName like '%指数%')) and ";
+                //queryStr += "(StockRate>=50 or (FundName like '%ETF%' or FundName like '%指数%')) and ";
+                queryStr += "FundType!='bond' and FundType is not NULL and ";
             }
             if (strategyQuery.status<=2)
             {
-                queryStr += "status=" + strategyQuery.status.ToString();
+                queryStr += "status=" + strategyQuery.status.ToString()+" and ";
             }
-            else
-            {
-                queryStr += "1=1";
-            }           
+            queryStr += "UserId=" + strategyQuery.UserId.ToString()+" ";           
             return queryStr;
         }
 
         public StrategyTitle GetStrategyTitle()
         {
-            StrategyTitle strategyTitle = new StrategyTitle();
-            RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
-            string timestr = DateTime.Now.AddMonths(-1).ToString("yyyy-MM-dd");
-            string todaystr = DateTime.Now.ToString("yyyy-MM-dd");
-            string sql = "";
-            MySqlParameter[] pars = null;
-            DataTable da;
+            //StrategyTitle strategyTitle = new StrategyTitle();
+            //RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
+            //string timestr = DateTime.Now.AddMonths(-1).ToString("yyyy-MM-dd");
+            //string todaystr = DateTime.Now.ToString("yyyy-MM-dd");
+            //string sql = "";
+            //MySqlParameter[] pars = null;
+            //DataTable da;
 
-            var result = redisHelper.GetRedisData<StrategyTitle>(todaystr+"-title");
+            //var result = redisHelper.GetRedisData<StrategyTitle>(todaystr+"-title");
 
-            if (result != null && result.AR1day!=0 && result.AR7day!= 0 && result.AR1month!=0)
-            {
-                strategyTitle.AR1day = result.AR1day;
-                strategyTitle.AR7day = result.AR7day;
-                strategyTitle.AR1month = result.AR1month;
-            }
-            else
-            {
-                sql = "select * from FundInfos where FundNo='444444' and FundUpdateTime='" + todaystr + "'";               
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                if (da.Rows.Count > 0)
-                {
-                    strategyTitle.AR1day = Math.Round(Convert.ToDouble(da.Rows[0]["R1day"]), 2);
-                    strategyTitle.AR7day = Math.Round(Convert.ToDouble(da.Rows[0]["R1week"]), 2);
-                    strategyTitle.AR1month = Math.Round(Convert.ToDouble(da.Rows[0]["R1month"]), 2);                    
-                }
-                else
-                {
-                    sql = "select NetValue,DataTime from FundDailyIDetails where FundNo='444444' and DataTime>='" + timestr + "' order by DataTime desc";
-                    da = MySqlHelper.ExecuteTable(sql, pars);
-                    if (da.Rows.Count > 0)
-                    {
-                        double recentNetvalue = Convert.ToDouble(da.Rows[0]["NetValue"]);
-                        double r1dNetValue = Convert.ToDouble(da.Rows[1]["NetValue"]);
-                        double r7dNetValue = Convert.ToDouble(da.Rows[5]["NetValue"]);
-                        double r1mNetValue = Convert.ToDouble(da.Rows[da.Rows.Count - 1]["NetValue"]);
-                        
+            //if (result != null && result.AR1day!=0 && result.CR1day!=0 && result.SR1day!=0)
+            //{
+            //    strategyTitle.AR1day = result.AR1day;
+            //    strategyTitle.CR1day = result.CR1day;
+            //    strategyTitle.SR1day = result.SR1day;
+            //}
+            //else
+            //{
+            //    using (MyContext myContext = new MyContext())
+            //    {
+            //        var fundInfos = myContext.FundInfos.Where(x => x.FundNo=="444444" || x.FundNo == "555555" || x.FundNo == "666666").ToList();
+            //        strategyTitle.AR1day = Math.Round((double)fundInfos.Single(x => x.FundNo == "444444").R1day,2);
+            //        strategyTitle.CR1day = Math.Round((double)fundInfos.Single(x => x.FundNo == "555555").R1day,2);
+            //        strategyTitle.SR1day = Math.Round((double)fundInfos.Single(x => x.FundNo == "666666").R1day,2);
+            //    }
+            //}
 
-                        strategyTitle.AR1day = Math.Round((recentNetvalue - r1dNetValue) * 100 / r1dNetValue, 2);
-                        strategyTitle.AR7day = Math.Round((recentNetvalue - r7dNetValue) * 100 / r7dNetValue, 2);
-                        strategyTitle.AR1month = Math.Round((recentNetvalue - r1mNetValue) * 100 / r1mNetValue, 2);
 
-                        string updatestr = $"update FundInfos set R1day=@R1day,R1week=@R1week,R1month=@R1month where FundNo='444444'";
-                        MySqlParameter[] pars1 = {
-                                   new MySqlParameter("@R1day",MySqlDbType.Double),
-                                   new MySqlParameter("@R1week", MySqlDbType.Double),
-                                   new MySqlParameter("@R1month", MySqlDbType.Double)
-                                 };
-                        pars1[0].Value = strategyTitle.AR1day;
-                        pars1[1].Value = strategyTitle.AR7day;
-                        pars1[2].Value = strategyTitle.AR1month;
-                        if (MySqlHelper.ExecuteNonQuery(updatestr, pars1) != 1)
-                        {
-                            throw new Exception();
-                        }
-                    }
-                }
+            //if (result != null && result.XYGRate !=0 && result.KJRate!=0 && result.MyStockRate!=0 && result.XYGReturn!=0 && result.RankReturn!=0 && result.KJReturn!=0 && result.MyReturn!=0 && result.SumStock!=0)
+            //{
+            //    strategyTitle.XYGRate = result.XYGRate;
+            //    strategyTitle.KJRate = result.KJRate;
+            //    strategyTitle.MyStockRate = result.MyStockRate;
+            //    strategyTitle.XYGReturn = result.XYGReturn;
+            //    strategyTitle.KJReturn = result.KJReturn;
+            //    strategyTitle.MyStockReturn = result.MyStockReturn;
+            //    strategyTitle.MyBondReturn = result.MyBondReturn;
+            //    strategyTitle.MyReturn = result.MyReturn;
+            //    strategyTitle.RankReturn = result.RankReturn;
+            //    strategyTitle.SumStock = result.SumStock;
+            //}
+            //else
+            //{
+            //    //sql = "select sum(Investment*StockRate/100) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where StockRate<1 and fi.FundName not like '%ETF%';";
+            //    //da = MySqlHelper.ExecuteTable(sql, pars);
+            //    //double stock1 = Convert.ToDouble(da.Rows[0][0].ToString());
 
-            }
+            //    //sql = "select sum(Investment*StockRate/100) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where 1<StockRate and StockRate<50 and fi.FundName not like '%ETF%';";
+            //    //da = MySqlHelper.ExecuteTable(sql, pars);
+            //    //double stock2 = Convert.ToDouble(da.Rows[0][0].ToString());
 
-            if (result != null && result.CR1day!=0)
-            {
-                strategyTitle.CR1day = result.CR1day;
-            }
-            else
-            {
-                sql = "select * from FundInfos where FundNo='555555' and FundUpdateTime='" + todaystr + "'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                if (da.Rows.Count > 0)
-                {
-                    strategyTitle.CR1day = Math.Round(Convert.ToDouble(da.Rows[0]["R1day"]), 2);
-                }
-                else
-                {
-                    sql = "select NetValue,DataTime from FundDailyIDetails where FundNo='555555' and DataTime>='" + timestr + "' order by DataTime desc";
-                    da = MySqlHelper.ExecuteTable(sql, pars);
-                    if (da.Rows.Count > 0)
-                    {
-                        double recentNetvalue = Convert.ToDouble(da.Rows[0]["NetValue"]);
-                        double r1dNetValue = Convert.ToDouble(da.Rows[1]["NetValue"]);
+            //    sql = "select sum(Investment*StockRate/100) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where 0<StockRate and StockRate<30 and fi.FundName not like '%ETF%';";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double stock3 = Convert.ToDouble(da.Rows[0][0].ToString());
 
-                        strategyTitle.CR1day = Math.Round((recentNetvalue - r1dNetValue) * 100 / r1dNetValue, 2);
+            //    sql = "select sum(Investment) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where 30<=StockRate or fi.FundName like '%ETF%';";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double stock4 = Convert.ToDouble(da.Rows[0][0].ToString());
 
-                        string updatestr = $"update FundInfos set R1day=@R1day where FundNo='555555'";
+            //    double sumstock = stock3 + stock4;
 
-                        MySqlParameter[] pars1 = {
-                                   new MySqlParameter("@R1day",MySqlDbType.Double),
-                                 };
-                        pars1[0].Value = strategyTitle.CR1day;
-                        if (MySqlHelper.ExecuteNonQuery(updatestr, pars1) != 1)
-                        {
-                            throw new Exception();
-                        }
-                    }
-                }
-            }
+            //    strategyTitle.SumStock = sumstock;
 
-            if (result != null && result.SR1day != 0)
-            {
-                strategyTitle.SR1day = result.SR1day;
-            }
-            else
-            {
-                sql = "select * from FundInfos where FundNo='666666' and FundUpdateTime='" + todaystr + "'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                if (da.Rows.Count > 0)
-                {
-                    strategyTitle.SR1day = Math.Round(Convert.ToDouble(da.Rows[0]["R1day"]), 2);
-                }
-                else
-                {
-                    sql = "select NetValue,DataTime from FundDailyIDetails where FundNo='666666' and DataTime>='" + timestr + "' order by DataTime desc";
-                    da = MySqlHelper.ExecuteTable(sql, pars);
-                    if (da.Rows.Count > 0)
-                    {
-                        double recentNetvalue = Convert.ToDouble(da.Rows[0]["NetValue"]);
-                        double r1dNetValue = Convert.ToDouble(da.Rows[1]["NetValue"]);
+            //    sql = "select sum(Investment) from MyFunds where Strategy like '%XYG%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double XYGStock = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.XYGRate = Math.Round(XYGStock * 100 / sumstock, 2);
 
-                        strategyTitle.SR1day = Math.Round((recentNetvalue - r1dNetValue) * 100 / r1dNetValue, 2);
+            //    sql = "select sum(Investment) from MyFunds where Strategy like '%KJ%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double KJStock = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.KJRate = Math.Round(KJStock * 100 / sumstock, 2);
 
-                        string updatestr = $"update FundInfos set R1day=@R1day where FundNo='666666'";
+            //    sql = "select sum(Investment) from MyFunds";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double totalinvestment = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.MyStockRate = Math.Round(sumstock*100/totalinvestment, 2);
 
-                        MySqlParameter[] pars1 = {
-                                   new MySqlParameter("@R1day",MySqlDbType.Double),
-                                 };
-                        pars1[0].Value = strategyTitle.SR1day;
-                        if (MySqlHelper.ExecuteNonQuery(updatestr, pars1) != 1)
-                        {
-                            throw new Exception();
-                        }
-                    }
-                }
-            }
+            //    sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where Strategy like '%XYG%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double xygreturn = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.XYGReturn = Math.Round(xygreturn*100/XYGStock, 2);
 
-            if (result != null && result.XYGRate !=0 && result.KJRate!=0 && result.MyStockRate!=0 && result.XYGReturn!=0 && result.RankReturn!=0 && result.KJReturn!=0 && result.MyReturn!=0 && result.SumStock!=0)
-            {
-                strategyTitle.XYGRate = result.XYGRate;
-                strategyTitle.KJRate = result.KJRate;
-                strategyTitle.MyStockRate = result.MyStockRate;
-                strategyTitle.XYGReturn = result.XYGReturn;
-                strategyTitle.KJReturn = result.KJReturn;
-                strategyTitle.MyStockReturn = result.MyStockReturn;
-                strategyTitle.MyBondReturn = result.MyBondReturn;
-                strategyTitle.MyReturn = result.MyReturn;
-                strategyTitle.RankReturn = result.RankReturn;
-                strategyTitle.SumStock = result.SumStock;
-            }
-            else
-            {
-                //sql = "select sum(Investment*StockRate/100) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where StockRate<1 and fi.FundName not like '%ETF%';";
-                //da = MySqlHelper.ExecuteTable(sql, pars);
-                //double stock1 = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where Strategy like '%KJ%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double kjreturn = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.KJReturn = Math.Round(kjreturn*100/ KJStock, 2);
 
-                //sql = "select sum(Investment*StockRate/100) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where 1<StockRate and StockRate<50 and fi.FundName not like '%ETF%';";
-                //da = MySqlHelper.ExecuteTable(sql, pars);
-                //double stock2 = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where StockRate>=30 or FundName like '%ETF%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double mystockreturn = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.MyStockReturn = Math.Round(mystockreturn * 100/sumstock, 2);
 
-                sql = "select sum(Investment*StockRate/100) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where 0<StockRate and StockRate<30 and fi.FundName not like '%ETF%';";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double stock3 = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where StockRate<30 and FundName not like '%ETF%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double mybondreturn = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    sql = "select sum(Investment) from MyFunds where status=1";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double total = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.MyBondReturn = Math.Round(mybondreturn * 100 / (total- sumstock), 2);
 
-                sql = "select sum(Investment) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where 30<=StockRate or fi.FundName like '%ETF%';";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double stock4 = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    sql = "select sum(Investment) from MyFunds where Strategy like '%Rank%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double rankStock = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where Strategy like '%Rank%'";
+            //    da = MySqlHelper.ExecuteTable(sql, pars);
+            //    double rankReturn = Convert.ToDouble(da.Rows[0][0].ToString());
+            //    strategyTitle.RankReturn = Math.Round(rankReturn * 100 / rankStock, 2);
 
-                double sumstock = stock3 + stock4;
+            //    strategyTitle.MyReturn = Math.Round((mybondreturn + mystockreturn)*100/total,2);
+            //}
 
-                strategyTitle.SumStock = sumstock;
+            //redisHelper.SetRedisData<StrategyTitle>(todaystr+"-title",strategyTitle);
+            //redisHelper.Close();
+            //return strategyTitle;
 
-                sql = "select sum(Investment) from MyFunds where Strategy like '%XYG%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double XYGStock = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.XYGRate = Math.Round(XYGStock * 100 / sumstock, 2);
-
-                sql = "select sum(Investment) from MyFunds where Strategy like '%KJ%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double KJStock = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.KJRate = Math.Round(KJStock * 100 / sumstock, 2);
-
-                sql = "select sum(Investment) from MyFunds";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double totalinvestment = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.MyStockRate = Math.Round(sumstock*100/totalinvestment, 2);
-
-                sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where Strategy like '%XYG%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double xygreturn = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.XYGReturn = Math.Round(xygreturn*100/XYGStock, 2);
-
-                sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where Strategy like '%KJ%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double kjreturn = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.KJReturn = Math.Round(kjreturn*100/ KJStock, 2);
-
-                sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where StockRate>=30 or FundName like '%ETF%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double mystockreturn = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.MyStockReturn = Math.Round(mystockreturn * 100/sumstock, 2);
-
-                sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where StockRate<30 and FundName not like '%ETF%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double mybondreturn = Convert.ToDouble(da.Rows[0][0].ToString());
-                sql = "select sum(Investment) from MyFunds where status=1";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double total = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.MyBondReturn = Math.Round(mybondreturn * 100 / (total- sumstock), 2);
-
-                sql = "select sum(Investment) from MyFunds where Strategy like '%Rank%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double rankStock = Convert.ToDouble(da.Rows[0][0].ToString());
-                sql = "select sum(Investment*ReturnRate) from FundInfos fi right join MyFunds mf on fi.FundNo=mf.FundNo where Strategy like '%Rank%'";
-                da = MySqlHelper.ExecuteTable(sql, pars);
-                double rankReturn = Convert.ToDouble(da.Rows[0][0].ToString());
-                strategyTitle.RankReturn = Math.Round(rankReturn * 100 / rankStock, 2);
-
-                strategyTitle.MyReturn = Math.Round((mybondreturn + mystockreturn)*100/total,2);
-            }
-
-            redisHelper.SetRedisData<StrategyTitle>(todaystr+"-title",strategyTitle);
-            
-            return strategyTitle;
+            return null;
         }
         public object GetProcessPercent()
         {
@@ -1341,6 +1592,355 @@ namespace Solo.BLL
                 return new { processmy = 0, process = 0 };
             }
             
+        }
+
+        public List<FundTip> GetFundNameTips(string fundstr)
+        {
+
+            using (MyContext myContext = new MyContext())
+            {
+                //RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
+                RedisConn readConn = new RedisConn(true);
+                var fundtips = readConn.GetRedisData<List<FundTip>>("FundTips");
+                if (fundtips == null || fundstr == "reset")
+                {
+                    RedisConn writeConn = new RedisConn(false);
+                    fundtips = new List<FundTip>();
+                    string sql = "select FundNo,FundName,StockNos,StockPositions from FundInfos where FundType!='bond' and FundType is not NULL and BuyRate>-1";
+                    MySqlParameter[] pars = null;
+                    DataTable da = MySqlHelper.ExecuteTable(sql, pars);
+                    //var fundInfos = myContext.FundInfos.Where(x => x.BuyRate > -1 && x.FundType != "bond" && x.FundType != null);//.ToList();
+                    for (int i = 0; i < da.Rows.Count; i++)
+                    {
+                        try
+                        {
+                            fundtips.Add(new FundTip()
+                            {
+                                FundNo = da.Rows[i]["FundNo"].ToString(),
+                                FundName = da.Rows[i]["FundName"].ToString(),
+                                StockNos = da.Rows[i]["StockNos"].ToString(),
+                                StockPositions = da.Rows[i]["StockPositions"].ToString()
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+
+                            Console.WriteLine(ex.Message);
+                        }
+                        
+                    }
+                    writeConn.SetRedisData("FundTips", fundtips);
+                    writeConn.Close();
+                }
+
+                //if (MyUtils.HasChinese(fundstr))
+                //{
+                //     res = myContext.FundInfos.Where(x => x.FundName.Contains(fundstr)).ToList();
+                //}
+                //else
+                //{
+                //     res = myContext.FundInfos.Where(x => x.FundNo.Contains(fundstr)).ToList();
+                //}
+                readConn.Close();
+               
+                return fundtips;
+            }
+            
+        }
+        public List<FundPureTip> GetFundPureTips(string fundstr)
+        {
+
+            using (MyContext myContext = new MyContext())
+            {
+                //RedisHelper redisHelper = new RedisHelper(AppConfigurtaionServices.Configuration.GetConnectionString("RedisConnection"));
+                RedisConn readConn = new RedisConn(true);
+                var fundPureTips = readConn.GetRedisData<List<FundPureTip>>("FundPureTips");
+                if (fundPureTips == null || fundstr == "reset")
+                {
+                    fundPureTips = new List<FundPureTip>();
+                    //var fundInfos = myContext.FundInfos.Where(x => x.BuyRate > -1).ToList();
+                    string sql = "select FundNo,FundName from FundInfos where BuyRate>-1";
+                    MySqlParameter[] pars = null;
+                    DataTable da = MySqlHelper.ExecuteTable(sql, pars);
+                    for (int i = 0; i < da.Rows.Count; i++)
+                    {
+                        fundPureTips.Add(new FundPureTip()
+                        {
+                            FundNo = da.Rows[i]["FundNo"].ToString(),
+                            FundName = da.Rows[i]["FundName"].ToString()
+                        });
+                    }
+                    RedisConn writeConn = new RedisConn(false);
+                    writeConn.SetRedisData("FundPureTips", fundPureTips);
+                    writeConn.Close();
+                }
+
+                //if (MyUtils.HasChinese(fundstr))
+                //{
+                //     res = myContext.FundInfos.Where(x => x.FundName.Contains(fundstr)).ToList();
+                //}
+                //else
+                //{
+                //     res = myContext.FundInfos.Where(x => x.FundNo.Contains(fundstr)).ToList();
+                //}
+                readConn.Close();
+                return fundPureTips;
+
+            }
+        }
+
+        public List<FundPositionView> GetFundPositionViews(int userId)
+        {
+            using (MyContext myContext = new MyContext())
+            {
+                List<FundPositionView> fundPositionViews = new List<FundPositionView>();
+                var masterPositions =  myContext.MasterPositions.ToList();
+                var config = new MapperConfiguration(cfg => cfg.CreateMap<MasterPosition, FundPositionView>());
+                var mapper = config.CreateMapper();
+                foreach (var masterPosition in masterPositions)
+                {
+                    fundPositionViews.Add(mapper.Map<FundPositionView>(masterPosition));
+                }
+                return fundPositionViews;
+            }
+            
+        }
+
+        public int FundPositionUpdate(MasterPosition masterPosition)
+        {
+            using (MyContext myContext = new MyContext())
+            {
+                var position = myContext.MasterPositions.Where(x => x.FundNo == masterPosition.FundNo).SingleOrDefault();
+                position.KJ_Position = masterPosition.KJ_Position;
+                position.XYG_Position = masterPosition.XYG_Position;
+                position.ALEX_Position = masterPosition.ALEX_Position;
+                return myContext.SaveChanges();
+            }
+        }
+
+        public List<DailyRateView> GetDailyRate()
+        {
+            using (MyContext myContext = new MyContext())
+            {
+                var daliyRates = new List<DailyRateView>();
+                DateTime nowdate = DateHelper.getFormatDateTime(DateTime.Now);
+                var all = myContext.DailyRates.OrderBy(x=>x.DateTime).ToList();
+                var config = new MapperConfiguration(cfg => cfg.CreateMap<DailyRate, DailyRateView>());
+                var mapper = config.CreateMapper();
+                if (nowdate.DayOfWeek!=DayOfWeek.Saturday && nowdate.DayOfWeek != DayOfWeek.Sunday )
+                {
+                    var view = mapper.Map<DailyRateView>(all.Where(x => x.DateTime == nowdate).FirstOrDefault());
+                    view.Tag = nowdate.ToString("MM-dd");
+                    daliyRates.Add(view);
+
+                }
+
+                DailyRateView dailyRate = new DailyRateView() { 
+                    My = 1,XYG=1,KJ=1,Alex_My=1,Alex =1 ,HS300=1,CYB=1,Tag="近一周"
+                };
+
+                var funds = myContext.FundInfos.Where(x => x.BuyRate <= -2).ToList();
+                for (int i = all.Count()-5; i < all.Count(); i++)
+                {
+                    dailyRate.My = dailyRate.My * (1 + (all[i].My / 100));
+                }
+                dailyRate.My = Math.Round((dailyRate.My - 1) * 100, 2);
+                dailyRate.XYG = Math.Round((double)funds.Where(x => x.FundNo == "12582474").SingleOrDefault().R1week, 2);
+                dailyRate.KJ = Math.Round((double)funds.Where(x => x.FundNo == "10917305").SingleOrDefault().R1week, 2);
+                dailyRate.Alex = Math.Round((double)funds.Where(x => x.FundNo == "10017235").SingleOrDefault().R1week, 2);
+                dailyRate.HS300 = Math.Round((double)funds.Where(x => x.FundNo == "333333").SingleOrDefault().R1week, 2);
+                dailyRate.CYB = Math.Round((double)funds.Where(x => x.FundNo == "555555").SingleOrDefault().R1week, 2);
+                daliyRates.Add(dailyRate);
+
+                dailyRate = new DailyRateView()
+                {
+                    My = 1,
+                    XYG = 1,
+                    KJ = 1,
+                    Alex_My = 1,
+                    Alex = 1,
+                    HS300 = 1,
+                    CYB = 1,
+                    Tag = "近一月"
+                };
+                for (int i = all.Count() - 22; i < all.Count(); i++)
+                {
+                    dailyRate.My = dailyRate.My * (1 + (all[i].My / 100));
+                }
+                dailyRate.My = Math.Round((dailyRate.My - 1) * 100, 2);
+                dailyRate.XYG = Math.Round((double)funds.Where(x => x.FundNo == "12582474").SingleOrDefault().R1month,2);
+                dailyRate.KJ = Math.Round((double)funds.Where(x => x.FundNo == "10917305").SingleOrDefault().R1month,2);
+                dailyRate.Alex = Math.Round((double)funds.Where(x => x.FundNo == "10017235").SingleOrDefault().R1month,2);
+                dailyRate.HS300 = Math.Round((double)funds.Where(x => x.FundNo == "333333").SingleOrDefault().R1month,2);
+                dailyRate.CYB = Math.Round((double)funds.Where(x => x.FundNo == "555555").SingleOrDefault().R1month,2);
+                daliyRates.Add(dailyRate);
+
+                dailyRate = new DailyRateView()
+                {
+                    My = 1,
+                    XYG = 1,
+                    KJ = 1,
+                    Alex_My = 1,
+                    Alex = 1,
+                    HS300 = 1,
+                    CYB = 1,
+                    Tag = "近三月"
+                };
+                for (int i = all.Count() - 63; i < all.Count(); i++)
+                {
+                    dailyRate.My = dailyRate.My * (1 + (all[i].My / 100));
+                }
+                dailyRate.My = Math.Round((dailyRate.My - 1) * 100, 2);
+                dailyRate.XYG = Math.Round((double)funds.Where(x => x.FundNo == "12582474").SingleOrDefault().R3month, 2);
+                dailyRate.KJ = Math.Round((double)funds.Where(x => x.FundNo == "10917305").SingleOrDefault().R3month, 2);
+                dailyRate.Alex = Math.Round((double)funds.Where(x => x.FundNo == "10017235").SingleOrDefault().R3month, 2);
+                dailyRate.HS300 = Math.Round((double)funds.Where(x => x.FundNo == "333333").SingleOrDefault().R3month, 2);
+                dailyRate.CYB = Math.Round((double)funds.Where(x => x.FundNo == "555555").SingleOrDefault().R3month, 2);
+                daliyRates.Add(dailyRate);
+
+                dailyRate = new DailyRateView()
+                {
+                    My = 1,
+                    XYG = 1,
+                    KJ = 1,
+                    Alex_My = 1,
+                    Alex = 1,
+                    HS300 = 1,
+                    CYB = 1,
+                    Tag = "近六月"
+                };
+                for (int i = all.Count() - 122; i < all.Count(); i++)
+                {
+                    dailyRate.My = dailyRate.My * (1 + (all[i].My / 100));
+                }
+                dailyRate.My = Math.Round((dailyRate.My - 1) * 100, 2);
+                dailyRate.XYG = Math.Round((double)funds.Where(x => x.FundNo == "12582474").SingleOrDefault().R6month, 2);
+                dailyRate.KJ = Math.Round((double)funds.Where(x => x.FundNo == "10917305").SingleOrDefault().R6month, 2);
+                dailyRate.Alex = Math.Round((double)funds.Where(x => x.FundNo == "10017235").SingleOrDefault().R6month, 2);
+                dailyRate.HS300 = Math.Round((double)funds.Where(x => x.FundNo == "333333").SingleOrDefault().R6month, 2);
+                dailyRate.CYB = Math.Round((double)funds.Where(x => x.FundNo == "555555").SingleOrDefault().R6month, 2);
+                daliyRates.Add(dailyRate);
+
+                var all_2022 = all.Where(x => x.DateTime >= new DateTime(2022, 1, 1, 0, 0, 0)).ToList();
+                dailyRate = new DailyRateView()
+                {
+                    My = 1,
+                    XYG = 1,
+                    KJ = 1,
+                    Alex_My = 1,
+                    Alex = 1,
+                    HS300 = 1,
+                    CYB = 1,
+                    Tag = "今年以来"
+                };
+                for (int i = all.Count() - all_2022.Count(); i < all.Count(); i++)
+                {
+                    dailyRate.My = dailyRate.My * (1 + (all[i].My / 100));
+                }
+                dailyRate.My = Math.Round((dailyRate.My - 1) * 100, 2);
+                dailyRate.XYG = Math.Round((double)funds.Where(x => x.FundNo == "12582474").SingleOrDefault().A2022, 2);
+                dailyRate.KJ = Math.Round((double)funds.Where(x => x.FundNo == "10917305").SingleOrDefault().A2022, 2);
+                dailyRate.Alex = Math.Round((double)funds.Where(x => x.FundNo == "10017235").SingleOrDefault().A2022, 2);
+                dailyRate.HS300 = Math.Round((double)funds.Where(x => x.FundNo == "333333").SingleOrDefault().A2022, 2);
+                dailyRate.CYB = Math.Round((double)funds.Where(x => x.FundNo == "555555").SingleOrDefault().A2022, 2);
+                daliyRates.Add(dailyRate);
+
+                //for (int i = all.Count()-5; i < all.Count(); i++)
+                //{
+                //    dailyRate.My = dailyRate.My * (1 + (all[i].My / 100));
+                //    dailyRate.XYG = dailyRate.XYG * (1 + (all[i].XYG / 100));
+                //    dailyRate.KJ = dailyRate.KJ * (1 + (all[i].KJ / 100));
+                //    dailyRate.Alex_My = dailyRate.Alex_My * (1 + (all[i].Alex_My / 100));
+                //    dailyRate.Alex = dailyRate.Alex * (1 + (all[i].Alex / 100));
+                //    dailyRate.HS300 = dailyRate.HS300 * (1 + (all[i].HS300 / 100));
+                //    dailyRate.CYB = dailyRate.CYB * (1 + (all[i].CYB / 100));
+                //}
+                //dailyRate.My = Math.Round((dailyRate.My - 1) * 100, 2);
+                //dailyRate.XYG = Math.Round((dailyRate.XYG - 1) * 100, 2);
+                //dailyRate.KJ = Math.Round((dailyRate.KJ - 1) * 100, 2);
+                //dailyRate.Alex_My = Math.Round((dailyRate.Alex_My - 1) * 100, 2);
+                //dailyRate.Alex = Math.Round((dailyRate.Alex - 1) * 100, 2);
+                //dailyRate.HS300 = Math.Round((dailyRate.HS300 - 1) * 100, 2);
+                //dailyRate.CYB = Math.Round((dailyRate.CYB - 1) * 100, 2);
+
+                //daliyRates.Add(dailyRate);
+
+
+                //dailyRate = new DailyRateView() { 
+                //    My = 1,XYG=1,KJ=1,Alex_My=1,Alex =1 ,HS300=1,CYB=1,Tag="近一月"
+                //};
+
+                //for (int i = all.Count() - 22; i < all.Count(); i++)
+                //{
+                //    dailyRate.My = dailyRate.My * (1 + (all[i].My / 100));
+                //    dailyRate.XYG = dailyRate.XYG * (1 + (all[i].XYG / 100));
+                //    dailyRate.KJ = dailyRate.KJ * (1 + (all[i].KJ / 100));
+                //    dailyRate.Alex_My = dailyRate.Alex_My * (1 + (all[i].Alex_My / 100));
+                //    dailyRate.Alex = dailyRate.Alex * (1 + (all[i].Alex / 100));
+                //    dailyRate.HS300 = dailyRate.HS300 * (1 + (all[i].HS300 / 100));
+                //    dailyRate.CYB = dailyRate.CYB * (1 + (all[i].CYB / 100));
+                //}              
+
+                //dailyRate.My = Math.Round((dailyRate.My-1)*100, 2);
+                //dailyRate.XYG = Math.Round((dailyRate.XYG - 1) * 100, 2);
+                //dailyRate.KJ = Math.Round((dailyRate.KJ - 1) * 100, 2);
+                //dailyRate.Alex_My = Math.Round((dailyRate.Alex_My - 1) * 100, 2);
+                //dailyRate.Alex = Math.Round((dailyRate.Alex - 1) * 100, 2);
+                //dailyRate.HS300 = Math.Round((dailyRate.HS300 - 1) * 100, 2);
+                //dailyRate.CYB = Math.Round((dailyRate.CYB - 1) * 100, 2);
+
+                //daliyRates.Add(dailyRate);
+                return daliyRates;
+            }
+        }
+
+        public double GetIndustryPosition(string ipstr, string industryName)
+        {
+            if (!string.IsNullOrEmpty(ipstr))
+            {
+                var dict = JsonConvert.DeserializeObject<Dictionary<string, double>>(ipstr);
+                if (dict.ContainsKey(industryName))
+                {
+                    return dict[industryName];
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            else
+            {
+                return 0;
+            }
+            
+        }
+
+        public string GetBelong(StockInfo stock)
+        {
+            if (stock.SZ50 > 0)
+            {
+                return "上证50";
+            }
+            else if (stock.HS300>0)
+            {
+                return "沪深300";
+            }
+            else if (stock.ZZ500 > 0)
+            {
+                return "中证500";
+            }
+            else if (stock.ZZ1000 > 0)
+            {
+                return "中证1000";
+            }
+            else if (stock.StockNo.Split('.')[0] == "116")
+            {
+                return "港股";
+            }
+            else
+            {
+                return "小盘";
+            }
         }
     }
 }

@@ -79,7 +79,7 @@ namespace Solo.BLL
         public List<TaskInfo> getTaskInfoByDate(int year, int month, int dayCount)
         {
             DateTime dtStart = new DateTime(year, month, 1, 0, 0, 0).AddMinutes(-1);
-            DateTime dtEnd = new DateTime(year, month, dayCount, 23, 59, 59).AddMinutes(1);
+            DateTime dtEnd = new DateTime(year, month, dayCount, 23, 59, 59);
 
             using (MyContext myContext = new MyContext())
             {
@@ -105,11 +105,24 @@ namespace Solo.BLL
         {
             using (MyContext myContext = new MyContext())
             {
-
+                newInfo.SkillName = newInfo.SkillName == "undefined" ? "other" : newInfo.SkillName;
+                newInfo.Detail = newInfo.Detail == "undefined" ? "" : newInfo.Detail;
                 //if (myContext.Skills.Where(x => x.SkillName.Contains(newInfo.SkillName)).ToList().Count > 0)
                 //{
                 myContext.TaskInfos.Add(newInfo);
-                return myContext.SaveChanges();
+                if (myContext.SaveChanges()==1)
+                {
+                    return myContext.TaskInfos.SingleOrDefault(x => x.taskName == newInfo.taskName
+                              && x.DeadLine == newInfo.DeadLine && x.SkillName == newInfo.SkillName
+                              && x.Duration == newInfo.Duration && x.Status == newInfo.Status).Id;
+
+
+                }
+                else
+                {
+                    return -1;
+                }
+               
                 //}
                 //else
                 //{
@@ -137,14 +150,17 @@ namespace Solo.BLL
         {
             using (MyContext myContext = new MyContext())
             {
-                    var taskInfo = myContext.TaskInfos.Single(x => x.Id == newInfo.Id);
-                    taskInfo.SkillName = newInfo.SkillName;
-                    taskInfo.Status = newInfo.Status;
-                    taskInfo.taskName = newInfo.taskName;
-                    taskInfo.Detail = newInfo.Detail;
-                    taskInfo.Duration = newInfo.Duration;
-                    taskInfo.DeadLine = newInfo.DeadLine;
-                    return myContext.SaveChanges();
+
+                var taskInfo = myContext.TaskInfos.SingleOrDefault(x => x.Id == newInfo.Id);
+                taskInfo.SkillName = newInfo.SkillName;
+                taskInfo.Status = newInfo.Status;
+                taskInfo.taskName = newInfo.taskName;
+                taskInfo.Detail = newInfo.Detail;
+                taskInfo.Duration = newInfo.Duration;
+                taskInfo.DeadLine = newInfo.DeadLine;
+
+
+                return myContext.SaveChanges();
             }
         }
 
@@ -198,6 +214,23 @@ namespace Solo.BLL
             }
             
 
+        }
+
+        public List<TaskInfo> GetRecentTaskInfos(int pageno)
+        {
+            try
+            {
+                using (MyContext myContext = new MyContext())
+                {
+                    var query = (from m in myContext.TaskInfos orderby m.DeadLine descending select m).Take(25 * pageno);
+                    return query.ToList();
+                }
+            }
+            catch(Exception ex)
+            {
+                //Console.WriteLine(ex.Message);
+                return null;
+            }
         }
     }
 }

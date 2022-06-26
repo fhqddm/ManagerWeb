@@ -11,17 +11,13 @@ namespace Solo.Model.ViewModel
         public int Id { get; set; }
         public string FundNo { get; set; }
         public int Status { get; set; }//Status=1 持有 Status=2 观望
-        public int Investment { get; set; }
-        public Nullable<double> InNetValue { get; set; }     
-        public string Strategy { get; set; }
-        public double Estimate { get; set; }
-        public int ValuationId { get; set; }
+        public int Investment { get; set; } 
+        public double HoldShares { get; set; }
+        public double Cost { get; set; }
+        public double TotalBonus { get; set; }
+        public Nullable<float> ReturnRate { get; set; }
+        public int UserId { get; set; }
 
 
     }
-
-    //public enum Strategy
-    //{
-    //    Conservative = 1 // 逐年大于5，
-    //}
 }

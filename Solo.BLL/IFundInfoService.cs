@@ -11,12 +11,18 @@ namespace Solo.BLL
     {
         List<FundView> GetFundInfosByQuery(FundQuery fundQuery);
 
-        List<AnalysisView> GetAnalysisByQuery(AnalysisQuery analysisQuery);
-
         List<StrategyView> GetStrategyByQuery(StrategyQuery strategyQuery);
 
         StrategyTitle GetStrategyTitle();
 
+        List<FundTip> GetFundNameTips(string fundstr);
+        List<FundPureTip> GetFundPureTips(string fundstr);
+
+        List<FundPositionView> GetFundPositionViews(int userId);
+
+        int FundPositionUpdate(MasterPosition masterPosition);
+   
         object GetProcessPercent();
+        List<DailyRateView> GetDailyRate();
     }
 }

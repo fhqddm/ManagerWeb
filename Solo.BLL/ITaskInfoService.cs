@@ -10,7 +10,7 @@ namespace Solo.BLL
 {
     public interface ITaskInfoService
     {
-         List<TaskInfo> getTaskInfoByDate(int year, int month, int dayCount);
+        List<TaskInfo> getTaskInfoByDate(int year, int month, int dayCount);
 
         public List<TaskInfo> GetUnfinishList();
         int DeleteById(int id);
@@ -29,5 +29,7 @@ namespace Solo.BLL
         int CheckUnFinish();
 
         List<PlanView> GetPlan();
+
+        List<TaskInfo> GetRecentTaskInfos(int pageno);
     }
 }

@@ -7,10 +7,10 @@ namespace Solo.BLL
 {
     public interface ITransactionInfoService
     {
-        List<TransactionInfo> GetTransactionInfosByFundNo(string FundNo);
+        List<TransactionInfo> GetTransactionInfosByFundNo(string FundNo,int UserId);
 
         int AddTransactionInfo(TransactionInfo transactionInfo);
 
-        List<TransactionInfo> GetRecentTransactions();
+        List<TransactionInfo> GetRecentTransactions(int UserId);
     }
 }
